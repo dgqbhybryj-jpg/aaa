@@ -6,29 +6,21 @@
       "use": "@vercel/python"
     },
     {
-      "src": "static/index.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "static/script.js",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "static/style.css",
+      "src": "static/**",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/static/(.*)",
+      "src": "/api/analyze",
+      "dest": "/api/analyze.py"
+    },
+    {
+      "src": "/(.*\\..*)",
       "dest": "/static/$1"
     },
     {
-      "src": "/api/analyze",
-      "dest": "api/analyze.py"
-    },
-    {
-      "src": "/",
+      "src": "/(.*)",
       "dest": "/static/index.html"
     }
   ]
