@@ -13,14 +13,11 @@
   "routes": [
     {
       "src": "/api/analyze",
-      "dest": "/api/analyze.py"
+      "dest": "/api/analyze.py",
+      "methods": ["GET", "POST", "OPTIONS"]
     },
     {
-      "src": "/",
-      "dest": "/static/index.html"
-    },
-    {
-      "src": "/(.+)",
+      "src": "/(.*)",
       "dest": "/static/$1"
     }
   ]
