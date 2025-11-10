@@ -150,6 +150,17 @@ async function handleAnalysis() {
     const resultsContainer = document.getElementById('results-container');
     const analyzeBtn = document.getElementById('analyze-btn');
     
+    // 重置收藏和导出按钮的状态
+    const favoriteButtons = document.querySelectorAll('.favorite-action-btn');
+    const exportButtons = document.querySelectorAll('.export-action-btn');
+    favoriteButtons.forEach(btn => {
+        btn.classList.add('hidden');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-star"></i> 收藏';
+    });
+    exportButtons.forEach(btn => btn.classList.add('hidden'));
+
+
     loadingDiv.classList.remove('hidden');
     resultsContainer.innerHTML = '';
     analyzeBtn.disabled = true;
@@ -192,9 +203,34 @@ function displayResults(data) {
     `).join('');
     container.innerHTML += `<div class="card"><h2 class="card-title">句型转换</h2>${transformationsHtml}</div>`;
     
-    const favoritesCard = `<div class="card" style="text-align: center;"><button id="favorites-btn">⭐ 添加到收藏夹</button></div>`;
-    container.innerHTML += favoritesCard;
-    document.getElementById('favorites-btn').addEventListener('click', () => handleAddToFavorites(data));
+    // 启用并设置页面中的收藏和导出按钮
+    const favoriteButtons = document.querySelectorAll('.favorite-action-btn');
+    const exportButtons = document.querySelectorAll('.export-action-btn');
+
+    const isFavorited = (JSON.parse(localStorage.getItem('sentenceFavorites')) || []).some(item => item.original_sentence === data.original_sentence);
+
+    favoriteButtons.forEach(btn => {
+        btn.classList.remove('hidden');
+        if (isFavorited) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-check"></i> 已收藏';
+            btn.classList.add('favorited');
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-star"></i> 收藏';
+            btn.classList.remove('favorited');
+            // 为按钮添加点击事件，如果它还没有的话
+            if (!btn.dataset.listenerAttached) {
+                btn.addEventListener('click', () => handleAddToFavorites(data));
+                btn.dataset.listenerAttached = 'true';
+            }
+        }
+    });
+
+    exportButtons.forEach(btn => {
+        btn.classList.remove('hidden');
+        // 未来可以在此为导出按钮添加事件
+    });
 }
 
 function handleAddToFavorites(analysisData) {
@@ -203,21 +239,19 @@ function handleAddToFavorites(analysisData) {
         const sentence = analysisData.original_sentence;
         if (existingFavorites.some(item => item.original_sentence === sentence)) {
             alert('这个句子已经收藏过了！');
-            const favoritesBtn = document.getElementById('favorites-btn');
-            if(favoritesBtn) {
-                favoritesBtn.disabled = true;
-                favoritesBtn.textContent = '已收藏';
-            }
             return;
         }
-        existingFavorites.push(analysisData);
+        existingFavorites.unshift(analysisData); // 使用 unshift 将新项目添加到数组开头
         localStorage.setItem('sentenceFavorites', JSON.stringify(existingFavorites));
         alert(`句子 "${sentence}" 已成功添加到收藏夹！`);
-        const favoritesBtn = document.getElementById('favorites-btn');
-        if (favoritesBtn) {
-            favoritesBtn.disabled = true;
-            favoritesBtn.textContent = '已收藏';
-        }
+        
+        // 更新所有收藏按钮的状态
+        const favoriteButtons = document.querySelectorAll('.favorite-action-btn');
+        favoriteButtons.forEach(btn => {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-check"></i> 已收藏';
+            btn.classList.add('favorited');
+        });
     } catch (error) {
         console.error("添加到收藏夹时发生错误:", error);
         alert("收藏失败，请检查浏览器控制台获取更多信息。");
