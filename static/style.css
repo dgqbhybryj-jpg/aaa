@@ -612,3 +612,11 @@ button:hover {
     font-weight: 500;
     color: var(--text-color);
 }
+
+.favorite-action-btn.favorited {
+    background-color: #5a6268;
+    border-color: #545b62;
+    color: #fff;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
