@@ -1,0 +1,614 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
+
+:root {
+    --primary-color: #4f46e5;
+    --background-gradient: linear-gradient(135deg, #6d28d9, #4f46e5);
+    --card-background: #ffffff;
+    --text-color: #333;
+    --title-color: #1e293b;
+    --subtle-text-color: #64748b;
+    --border-color: #e2e8f0;
+    --shadow-color: rgba(79, 70, 229, 0.1);
+    --neo-border: 4px solid #000;
+    --neo-shadow: 8px 8px 0px #000;
+}
+
+body {
+    font-family: 'Noto Sans SC', sans-serif;
+    margin: 0;
+    padding: 40px 20px;
+    background: var(--background-gradient);
+    color: var(--text-color);
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    position: relative; 
+}
+
+/* --- 导航样式 --- */
+.navigation {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px;
+    border-radius: 12px;
+}
+.nav-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 10px 20px;
+    margin: 0 5px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    white-space: nowrap; 
+}
+.nav-btn.active, .nav-btn:hover {
+    background: white;
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+button {
+    margin-top: 0;
+}
+.input-area button {
+    margin-top: 15px; 
+}
+
+
+.header {
+    text-align: center;
+    color: white;
+    margin-bottom: 40px;
+}
+.header h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 10px; }
+.header p { font-size: 1.1rem; opacity: 0.9; }
+
+.card {
+    background: var(--card-background);
+    border-radius: 16px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 25px -5px var(--shadow-color), 0 8px 10px -6px var(--shadow-color);
+    transition: all 0.3s ease-in-out;
+}
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 25px -5px var(--shadow-color), 0 8px 10px -6px var(--shadow-color);
+}
+.card-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 25px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Neo-brutalism 风格的输入框 */
+.neo-input {
+    width: 100%;
+    min-height: 150px;
+    padding: 20px;
+    border: var(--neo-border);
+    border-radius: 0;
+    font-size: 20px;
+    font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+    font-weight: 700;
+    resize: vertical;
+    box-sizing: border-box;
+    transition: all 0.2s;
+    background: #fff;
+    box-shadow: var(--neo-shadow);
+}
+.neo-input:focus {
+    outline: none;
+    transform: translate(-4px, -4px);
+    box-shadow: 12px 12px 0px #000;
+}
+.neo-input::placeholder {
+    font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+    font-weight: 700;
+    color: #999;
+}
+
+textarea {
+    width: 100%;
+    height: 100px;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 16px;
+    resize: vertical;
+    box-sizing: border-box;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+/* Neo-brutalism 风格的按钮 */
+.neo-btn {
+    display: block;
+    width: 100%;
+    padding: 18px 24px;
+    border: var(--neo-border);
+    background: var(--primary-color);
+    color: white;
+    font-size: 20px;
+    font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+    font-weight: 700;
+    border-radius: 0;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: var(--neo-shadow);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.neo-btn:hover {
+    background-color: #4338ca;
+    transform: translate(-4px, -4px);
+    box-shadow: 12px 12px 0px #000;
+}
+.neo-btn:active {
+    transform: translate(0, 0);
+    box-shadow: 4px 4px 0px #000;
+}
+
+button {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    border: none;
+    background: var(--primary-color);
+    color: white;
+    font-size: 18px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+button:hover {
+    background-color: #4338ca;
+    transform: translateY(-2px);
+}
+#loading { text-align: center; padding: 20px; font-style: italic; color: var(--subtle-text-color); }
+.hidden { display: none; }
+
+#favorites-btn {
+    width: auto;
+    display: inline-block;
+    padding: 10px 20px;
+    font-size: 14px;
+    background-color: #f59e0b;
+    white-space: nowrap; 
+}
+#favorites-btn:hover { background-color: #d97706; }
+
+.pattern-analysis p { margin: 10px 0; line-height: 1.6; }
+.pattern-analysis .formula {
+    background-color: #f3f4f6;
+    padding: 10px 15px;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+    font-family: monospace;
+    font-size: 1.1em;
+}
+
+/* Neo-brutalism 风格的双列布局 */
+.two-column-grid { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 0;
+    border: var(--neo-border);
+    border-radius: 0;
+    overflow: hidden;
+    margin: 20px 0;
+    box-shadow: var(--neo-shadow);
+}
+.grid-item { 
+    padding: 15px; 
+    border-radius: 0;
+    display: flex; 
+    align-items: center; 
+    position: relative;
+    min-height: 50px;
+}
+.grid-item.cn { 
+    background-color: #fef2f2; 
+    border-right: var(--neo-border);
+    border-left: none;
+}
+.grid-item.en { 
+    background-color: #eff6ff; 
+    border-left: var(--neo-border);
+    border-right: none;
+}
+
+.speaker-icon {
+    cursor: pointer;
+    margin-left: 10px;
+    font-size: 1.2em;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+.speaker-icon:hover { opacity: 1; }
+
+.scenario-group { margin-bottom: 20px; }
+.scenario-title { font-weight: 700; margin-bottom: 10px; color: var(--title-color); }
+
+.favorite-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    background-color: #f8fafc;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+.favorite-item-title {
+    font-weight: 500;
+}
+.favorite-item-controls button {
+    width: auto;
+    padding: 8px 15px;
+    font-size: 14px;
+    margin-left: 10px;
+    white-space: nowrap; 
+}
+.review-checkbox {
+    margin-right: 20px;
+    transform: scale(1.5);
+}
+
+.review-result {
+    text-align: center;
+    margin-top: 30px;
+    padding: 20px;
+    border: 2px dashed #a5b4fc;
+    border-radius: 10px;
+}
+
+#review-controls-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 30px; 
+}
+.select-all-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+}
+#review-controls-header button {
+    width: auto;
+    background-color: #10b981;
+    white-space: nowrap; 
+}
+#review-controls-header button:hover {
+    background-color: #059669;
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 20px 0;
+    gap: 15px;
+}
+.pagination-controls button {
+    width: auto;
+    padding: 8px 16px;
+    font-size: 14px;
+    white-space: nowrap; 
+}
+.pagination-controls button:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+}
+#page-info {
+    font-size: 16px;
+    font-weight: 500;
+    color: white;
+}
+
+/* 编辑图标样式 */
+.edit-icon {
+    cursor: pointer;
+    margin-left: 10px;
+    color: var(--primary-color);
+    font-size: 1.1em;
+    opacity: 0.7;
+    transition: all 0.2s;
+}
+.edit-icon:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* 编辑输入框 */
+.edit-input {
+    width: 100%;
+    padding: 8px;
+    border: 2px solid var(--primary-color);
+    border-radius: 4px;
+    font-size: 16px;
+    font-family: 'Noto Sans SC', sans-serif;
+}
+
+.transformation-item .grid-item.cn {
+    align-items: center; 
+}
+.transformation-item .type {
+    font-weight: 700;    
+    flex-shrink: 0;      
+    margin-right: 1em;   
+    white-space: nowrap; 
+}
+.transformation-item .cn-text {
+    text-align: left;
+}
+
+/* --- 【关键】以下是您缺失的样式 --- */
+
+/* 复习模式中的交互区域样式 */
+.review-interaction-area {
+    display: grid;
+    grid-template-columns: 40px 1fr auto; /* 图标 | 输入框 | 按钮 */
+    gap: 10px;
+    align-items: center;
+    width: 100%; /* 确保填满父容器 */
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f9fafb;
+    border-radius: 8px;
+}
+
+.review-mic-icon {
+    font-size: 24px;
+    cursor: pointer;
+    text-align: center;
+    opacity: 0.7;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.review-mic-icon:hover {
+    opacity: 1;
+}
+
+.review-mic-icon.recording {
+    opacity: 1;
+    transform: scale(1.2);
+    color: #ef4444; /* 录音时变红，提供视觉反馈 */
+}
+
+.user-transcription {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+.check-btn {
+    width: auto;
+    padding: 8px 15px;
+    font-size: 14px;
+    background-color: #3b82f6;
+    white-space: nowrap;
+}
+.check-btn:hover {
+    background-color: #2563eb;
+}
+
+/* 差异对比结果的样式 */
+.diff-result {
+    margin-top: 15px;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1.1em;
+    line-height: 1.6;
+    width: 100%; /* 确保填满 */
+    box-sizing: border-box; /* 避免padding导致溢出 */
+}
+
+.diff-correct {
+    color: #333; /* 正确部分 */
+}
+
+.diff-added, .diff-removed {
+    color: #dc2626; /* 多余或缺失的部分用红色 */
+    font-weight: bold;
+    text-decoration: underline;
+    background-color: #fee2e2;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+/* --- 缺失样式结束 --- */
+
+
+/* --- “回到顶部”按钮样式 --- */
+#back-to-top-btn {
+    position: fixed;
+    bottom: 50px;
+    right: 100px;
+    z-index: 1000;
+    
+    width: 80px;
+    height: 80px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 50px;
+    font-weight: bold;
+    cursor: pointer;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+    transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+}
+#back-to-top-btn:hover {
+    background-color: #4338ca;
+}
+#back-to-top-btn.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* 表头和表尾操作按钮 */
+.header-actions, .footer-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+.favorite-action-btn, .export-action-btn {
+    width: auto;
+    padding: 12px 24px;
+    border: var(--neo-border);
+    background: #f59e0b;
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 0;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: var(--neo-shadow);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.favorite-action-btn:hover {
+    background: #d97706;
+    transform: translate(-4px, -4px);
+    box-shadow: 12px 12px 0px #000;
+}
+.export-action-btn {
+    background: #10b981;
+}
+.export-action-btn:hover {
+    background: #059669;
+    transform: translate(-4px, -4px);
+    box-shadow: 12px 12px 0px #000;
+}
+
+/* 收藏页控制区域 */
+.favorites-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.search-container {
+    flex: 1;
+    min-width: 200px;
+    position: relative;
+}
+.search-container .neo-input {
+    min-height: 50px;
+    font-size: 16px;
+    padding-right: 40px;
+}
+.search-icon {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+    pointer-events: none;
+}
+.filter-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.neo-select {
+    padding: 10px 15px;
+    border: var(--neo-border);
+    border-radius: 0;
+    font-size: 16px;
+    font-weight: 700;
+    background: white;
+    cursor: pointer;
+    box-shadow: 4px 4px 0px #000;
+    transition: all 0.2s;
+}
+.neo-select:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px #000;
+}
+.neo-select:focus {
+    outline: none;
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px #000;
+}
+
+/* 中文解释区域 */
+.chinese-explanation {
+    margin: 20px 0;
+    padding: 15px;
+    background: #fef2f2;
+    border-left: 4px solid #ef4444;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* 上传发音按钮 */
+.upload-audio-btn {
+    cursor: pointer;
+    margin-left: 10px;
+    color: #10b981;
+    font-size: 1.1em;
+    opacity: 0.7;
+    transition: all 0.2s;
+}
+.upload-audio-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+.upload-audio-input {
+    display: none;
+}
+
+/* 复习次数显示 */
+.review-count {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 4px 8px;
+    background: #e0e7ff;
+    color: #4338ca;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* 收藏页句子显示 */
+.favorite-sentence {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-color);
+}

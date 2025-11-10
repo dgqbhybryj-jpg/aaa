@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 英语句子分析器</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body>
+    <!-- 这是最外层的容器，所有页面内容都应该在它里面 -->
+    <div class="container">
+        
+        <div class="navigation">
+            <button id="show-analyzer-btn" class="nav-btn active">句子分析</button>
+            <button id="show-favorites-btn" class="nav-btn">我的收藏</button>
+        </div>
+
+        <!-- 分析器区域 -->
+        <div id="analyzer-section">
+            <div class="header">
+                <h1>AI 英语句子分析器</h1>
+                <p>输入一句英文，立即获得深度解析！</p>
+                <div class="header-actions">
+                    <button id="header-favorite-btn" class="favorite-action-btn hidden">
+                        <i class="fas fa-star"></i> 收藏
+                    </button>
+                    <button id="header-export-btn" class="export-action-btn hidden">
+                        <i class="fas fa-download"></i> 导出
+                    </button>
+                </div>
+            </div>
+            <div class="input-area card">
+                <textarea id="sentence-input" class="neo-input" placeholder="例如: The quick brown fox jumps over the lazy dog."></textarea>
+                <button id="analyze-btn" class="neo-btn">立即分析</button>
+            </div>
+            <div id="loading" class="hidden">正在分析中，请稍候...</div>
+            <div id="results-container"></div>
+            <div id="footer-actions" class="footer-actions hidden">
+                <button id="footer-favorite-btn" class="favorite-action-btn">
+                    <i class="fas fa-star"></i> 收藏
+                </button>
+                <button id="footer-export-btn" class="export-action-btn">
+                    <i class="fas fa-download"></i> 导出
+                </button>
+            </div>
+        </div>
+
+        <!-- 收藏夹区域 -->
+        <div id="favorites-section" class="hidden">
+            <div class="header">
+                <h1>我的收藏夹</h1>
+                <p>在这里复习您收藏的句子。</p>
+            </div>
+            
+            <div class="favorites-controls card">
+                <div class="search-container">
+                    <input type="text" id="favorites-search" class="neo-input" placeholder="搜索收藏的句子...">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+                <div class="filter-container">
+                    <label for="review-filter">筛选复习内容：</label>
+                    <select id="review-filter" class="neo-select">
+                        <option value="all">全部</option>
+                        <option value="0">未复习 (0次)</option>
+                        <option value="1">复习1次</option>
+                        <option value="2">复习2次</option>
+                        <option value="3+">复习3次及以上</option>
+                    </select>
+                </div>
+                <button id="batch-export-btn" class="neo-btn">
+                    <i class="fas fa-download"></i> 批量导出
+                </button>
+            </div>
+            
+            <div id="review-controls-header" class="card hidden">
+                <div class="select-all-container">
+                    <input type="checkbox" id="select-all-checkbox">
+                    <label for="select-all-checkbox">全选当页</label>
+                </div>
+                <button id="start-review-btn" class="neo-btn">开始复习选中的句子</button>
+            </div>
+
+            <div id="favorites-list-container"></div>
+            
+            <div id="pagination-controls" class="pagination-controls"></div>
+
+            <!-- 修正：这里是唯一的 review-area -->
+            <div id="review-area">
+                <!-- 复习界面将动态生成于此 -->
+            </div>
+        </div>
+
+        <!-- 修正：“回到顶部”按钮应该在主容器的末尾 -->
+        <button id="back-to-top-btn" title="回到顶部">↑</button>
+
+    </div> <!-- 这是 .container 的结束标签 -->
+
+    <!-- 修正：整个页面只需要引入一次 script.js，并且通常放在 body 的最后 -->
+    <script src="script.js"></script>
+
+</body>
+</html>
