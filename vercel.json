@@ -12,16 +12,12 @@
   ],
   "routes": [
     {
-      "src": "/static/(.*)",
+      "src": "/api/(.*)",
+      "dest": "api/$1"
+    },
+    {
+      "src": "/(.*)",
       "dest": "/static/$1"
-    },
-    {
-      "src": "/api/analyze",
-      "dest": "/api/analyze.py"
-    },
-    {
-      "src": "/",
-      "dest": "/static/index.html"
     }
   ]
 }
