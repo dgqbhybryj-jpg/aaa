@@ -16,12 +16,12 @@
       "dest": "/api/analyze.py"
     },
     {
-      "src": "/(.*\\..*)",
-      "dest": "/static/$1"
+      "src": "/",
+      "dest": "/static/index.html"
     },
     {
-      "src": "/(.*)",
-      "dest": "/static/index.html"
+      "src": "/(.+)",
+      "dest": "/static/$1"
     }
   ]
 }
