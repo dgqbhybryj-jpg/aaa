@@ -102,7 +102,12 @@ function startSpeechRecognition(micIcon, targetInput) {
     };
     recognition.onerror = (event) => {
         console.error("语音识别错误:", event.error);
-        targetInput.value = '识别失败，请重试。';
+        if (event.error === 'not-allowed') {
+            targetInput.value = '麦克风权限被禁用，请检查浏览器设置。';
+            alert('您需要允许网页访问您的麦克风才能使用语音识别功能。\n\n请点击地址栏左侧的图标（通常是一个锁），然后在弹出的菜单中允许麦克风访问，最后刷新页面重试。');
+        } else {
+            targetInput.value = '识别失败，请重试。';
+        }
         isRecognizing = false;
     };
     recognition.start();
@@ -590,24 +595,52 @@ function renderPaginationControls(totalItems) {
 
     if (totalPages <= 1) return;
 
-    const prevButton = document.createElement('button');
-    prevButton.textContent = '上一页';
-    prevButton.disabled = currentPage === 1;
-    prevButton.addEventListener('click', () => changePage(currentPage - 1));
+    const createButton = (text, page, isDisabled = false) => {
+        const button = document.createElement('button');
+        button.textContent = text;
+        button.disabled = isDisabled;
+        button.addEventListener('click', () => changePage(page));
+        return button;
+    };
+
+    paginationContainer.appendChild(createButton('首页', 1, currentPage === 1));
+    paginationContainer.appendChild(createButton('上一页', currentPage - 1, currentPage === 1));
+    
+    const pageInfoContainer = document.createElement('div');
+    pageInfoContainer.className = 'page-info-container';
     
     const pageInfo = document.createElement('span');
     pageInfo.id = 'page-info';
     pageInfo.textContent = `第 ${currentPage} / ${totalPages} 页`;
 
-    const nextButton = document.createElement('button');
-    nextButton.textContent = '下一页';
-    nextButton.disabled = currentPage === totalPages;
-    nextButton.addEventListener('click', () => changePage(currentPage + 1));
+    const pageInput = document.createElement('input');
+    pageInput.type = 'number';
+    pageInput.id = 'page-input';
+    pageInput.min = 1;
+    pageInput.max = totalPages;
+    pageInput.placeholder = `页码`;
+    pageInput.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') {
+            const page = parseInt(e.target.value);
+            if (page >= 1 && page <= totalPages) {
+                changePage(page);
+            } else {
+                alert(`请输入 1 到 ${totalPages} 之间的有效页码。`);
+            }
+        }
+    });
 
-    paginationContainer.append(prevButton, pageInfo, nextButton);
+    pageInfoContainer.append(pageInfo, pageInput);
+    paginationContainer.append(pageInfoContainer);
+
+    paginationContainer.appendChild(createButton('下一页', currentPage + 1, currentPage === totalPages));
+    paginationContainer.appendChild(createButton('尾页', totalPages, currentPage === totalPages));
 }
 
 function changePage(newPage) {
+    if (newPage < 1 || newPage > Math.ceil((getFilteredFavorites().length || 0) / itemsPerPage)) {
+        return;
+    }
     currentPage = newPage;
     renderFavoritesList(getFilteredFavorites());
 }

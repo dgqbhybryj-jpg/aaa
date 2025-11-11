@@ -339,6 +339,26 @@ button:hover {
     color: white;
 }
 
+.page-info-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#page-input {
+    width: 60px;
+    padding: 8px;
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+}
+#page-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
 /* 编辑图标样式 */
 .edit-icon {
     cursor: pointer;
