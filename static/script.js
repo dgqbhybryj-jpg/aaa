@@ -8,6 +8,7 @@ let currentSearchTerm = '';
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
+let isRecognizing = false;
 
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
@@ -76,6 +77,12 @@ function startSpeechRecognition(micIcon, targetInput) {
         alert("抱歉，您的浏览器不支持语音识别。请尝试使用最新版的Chrome或Edge。");
         return;
     }
+    if (isRecognizing) {
+        console.log("Speech recognition is already active.");
+        return;
+    }
+
+    isRecognizing = true;
     micIcon.classList.add('recording');
     targetInput.value = '正在聆听...';
 
@@ -91,10 +98,12 @@ function startSpeechRecognition(micIcon, targetInput) {
         if (targetInput.value === '正在聆听...') {
             targetInput.value = '';
         }
+        isRecognizing = false;
     };
     recognition.onerror = (event) => {
         console.error("语音识别错误:", event.error);
         targetInput.value = '识别失败，请重试。';
+        isRecognizing = false;
     };
     recognition.start();
 }
@@ -158,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 复习按钮
     document.getElementById('start-review-btn').addEventListener('click', startReviewSession);
     document.getElementById('start-review-btn-main').addEventListener('click', startReviewSession);
+    document.getElementById('batch-export-btn').addEventListener('click', handleBatchExport);
     
     // --- "回到顶部"按钮逻辑 ---
     const backToTopBtn = document.getElementById('back-to-top-btn');
@@ -391,6 +401,51 @@ function displayResults(data) {
     bindExport(headerExportBtn2);
 }
 
+function handleBatchExport() {
+    const selectedIndexes = Array.from(document.querySelectorAll('.review-checkbox:checked'))
+        .map(cb => parseInt(cb.dataset.index));
+
+    if (selectedIndexes.length === 0) {
+        alert('请至少选择一个句子进行导出！');
+        return;
+    }
+
+    const allFavorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
+    const itemsToExport = selectedIndexes.map(index => allFavorites[index]).filter(Boolean);
+
+    const workbook = XLSX.utils.book_new();
+
+    itemsToExport.forEach(data => {
+        const exportData = [];
+        exportData.push(['项目', '中文', '英文']);
+        exportData.push(['原句', '', data.original_sentence]);
+        exportData.push(['句型公式', data.patternAnalysis.formula, '']);
+        exportData.push(['语法点', data.patternAnalysis.grammarPoint, '']);
+        exportData.push([]);
+        exportData.push(['重要词组']);
+        data.keyPhrases.forEach(phrase => exportData.push(['', phrase.cn, phrase.en]));
+        exportData.push([]);
+        exportData.push(['不同场景高频表达']);
+        Object.entries(data.scenarioSentences).forEach(([title, sentences]) => {
+            exportData.push(['', title, '']);
+            sentences.forEach(s => exportData.push(['', s.cn, s.en]));
+        });
+        exportData.push([]);
+        exportData.push(['句型转换']);
+        data.transformations.forEach(t => exportData.push([t.type, t.cn, t.en]));
+        
+        const worksheet = XLSX.utils.aoa_to_sheet(exportData);
+        worksheet['!cols'] = [{ wch: 20 }, { wch: 40 }, { wch: 40 }];
+        
+        // 清理句子以用作表名
+        const sheetName = data.original_sentence.replace(/[\\/*?[\]:]/g, "").slice(0, 31);
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    });
+
+    XLSX.writeFile(workbook, '批量导出-句子分析.xlsx');
+}
+
+
 function handleExportToExcel(data) {
     const exportData = [];
     exportData.push(['项目', '中文', '英文']);
@@ -586,7 +641,12 @@ function compareSentences(userInput, correctSentence, resultContainer) {
         const className = part.added ? 'diff-added' : part.removed ? 'diff-removed' : 'diff-correct';
         html += `<span class="${className}">${part.value}</span>`;
     });
-    resultContainer.innerHTML = `您的回答对比：${html}`;
+
+    const speakerIconHtml = `<span class="speaker-icon" data-text="${correctSentence.replace(/"/g, '&quot;')}">🔊</span>`;
+    resultContainer.innerHTML = `
+        <div class="comparison-result">您的回答对比：${html}</div>
+        <div class="correct-answer">正确答案: ${correctSentence} ${speakerIconHtml}</div>
+    `;
 }
 
 function initReviewTargets(items) {
