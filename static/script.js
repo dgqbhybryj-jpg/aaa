@@ -4,18 +4,28 @@ let voices = [];
 let currentPage = 1;
 const itemsPerPage = 5;
 let currentAnalysisData = null; // 当前分析结果对象，用于可编辑备注与导出/收藏同步
+let currentSearchTerm = '';
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 
-if (SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-} else {
-    console.log("您的浏览器不支持语音识别功能。");
+// 等待语音列表可用
+function waitForVoices(timeoutMs = 1000) {
+    return new Promise((resolve) => {
+        const start = Date.now();
+        const check = () => {
+            const list = synth.getVoices();
+            if (list && list.length > 0) {
+                voices = list;
+                resolve();
+            } else if (Date.now() - start < timeoutMs) {
+                setTimeout(check, 100);
+            } else {
+                resolve(); // 超时也继续，使用默认声音
+            }
+        };
+        check();
+    });
 }
 
 function populateVoiceList() {
@@ -27,13 +37,20 @@ if (synth.onvoiceschanged !== undefined) {
 }
 
 // --- 核心功能 ---
-function speak(text) {
-    if (synth.speaking) return;
-    if (text !== '') {
+async function speak(text) {
+    try {
+        if (!text) return;
+        // 一些浏览器需要在用户手势中resume
+        if (synth.paused) synth.resume();
+        synth.cancel();
+        await waitForVoices();
         const utterThis = new SpeechSynthesisUtterance(text);
-        const britishVoice = voices.find(voice => voice.lang === 'en-GB') || voices.find(voice => voice.lang.startsWith('en-'));
+        utterThis.lang = 'en-GB';
+        const britishVoice = voices.find(voice => voice.lang === 'en-GB') || voices.find(voice => voice.lang && voice.lang.startsWith('en-'));
         if (britishVoice) utterThis.voice = britishVoice;
         synth.speak(utterThis);
+    } catch (e) {
+        console.error('speech error', e);
     }
 }
 
@@ -99,6 +116,18 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('click', handleBodyClick);
     document.getElementById('select-all-checkbox').addEventListener('change', handleSelectAll);
     document.getElementById('favorites-search').addEventListener('input', handleFavoriteSearch);
+    const searchIcon = document.querySelector('.search-icon');
+    if (searchIcon) {
+        searchIcon.style.cursor = 'pointer';
+        searchIcon.addEventListener('click', () => handleFavoriteSearch({ target: { value: document.getElementById('favorites-search').value } }));
+    }
+    document.getElementById('favorites-search').addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') handleFavoriteSearch({ target: { value: e.target.value } });
+    });
+    const reviewFilter = document.getElementById('review-filter');
+    if (reviewFilter) {
+        reviewFilter.addEventListener('change', () => { currentPage = 1; renderFavoritesList(getFilteredFavorites()); });
+    }
     
     // --- "回到顶部"按钮逻辑 ---
     const backToTopBtn = document.getElementById('back-to-top-btn');
@@ -113,10 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('scroll', scrollHandler);
 
     backToTopBtn.addEventListener('click', () => {
-        window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
     showAnalyzer();
@@ -383,8 +409,9 @@ function showFavorites() {
     document.getElementById('show-analyzer-btn').classList.remove('active');
     document.getElementById('show-favorites-btn').classList.add('active');
     currentPage = 1;
-    document.getElementById('favorites-search').value = ''; // 清空搜索框
-    renderFavoritesList();
+    document.getElementById('favorites-search').value = '';
+    currentSearchTerm = '';
+    renderFavoritesList(getFilteredFavorites());
 }
 
 // 收藏页渲染：增加复习次数显示与排序
@@ -422,14 +449,15 @@ function renderFavoritesList(favoritesToShow) {
     const allFavorites = favorites;
     const paginatedItems = favorites.slice(startIndex, endIndex);
 
+    const fullList = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
     container.innerHTML = paginatedItems.map((item) => {
-        const originalIndex = allFavorites.findIndex(fav => fav.original_sentence === item.original_sentence);
+        const originalIndex = fullList.findIndex(fav => fav.original_sentence === item.original_sentence);
         const count = (item._meta && item._meta.reviewCount) ? item._meta.reviewCount : 0;
         return `
         <div class="favorite-item card">
             <div style="display: flex; align-items: center; justify-content: space-between;">
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <input type="checkbox" class="review-checkbox" data-index="${originalIndex}">
+                    <input type="checkbox" class="review-checkbox" data-index="${originalIndex}" data-sent="${item.original_sentence}">
                     <span class="favorite-item-title">${item.patternAnalysis.formula}</span>
                 </div>
                 <span class="review-count-badge">复习 ${count} 次</span>
@@ -475,9 +503,7 @@ function renderPaginationControls(totalItems) {
 
 function changePage(newPage) {
     currentPage = newPage;
-    // 重新执行搜索以渲染正确的页面
-    const searchTerm = document.getElementById('favorites-search').value;
-    handleFavoriteSearch({ target: { value: searchTerm } });
+    renderFavoritesList(getFilteredFavorites());
 }
 
 function deleteFavorite(indexToDelete) {
@@ -486,14 +512,11 @@ function deleteFavorite(indexToDelete) {
     favorites.splice(indexToDelete, 1);
     localStorage.setItem('sentenceFavorites', JSON.stringify(favorites));
 
-    const totalPages = Math.ceil(favorites.length / itemsPerPage);
+    const totalPages = Math.ceil(getFilteredFavorites().length / itemsPerPage);
     if (currentPage > totalPages) {
         currentPage = totalPages > 0 ? totalPages : 1;
     }
-    
-    // 删除后重新渲染当前搜索结果
-    const searchTerm = document.getElementById('favorites-search').value;
-    handleFavoriteSearch({ target: { value: searchTerm } });
+    renderFavoritesList(getFilteredFavorites());
 }
 
 function handleSelectAll(event) {
@@ -627,30 +650,42 @@ function exitReviewMode() {
     renderFavoritesList();
 }
 
-function handleFavoriteSearch(event) {
-    const searchTerm = event.target.value.toLowerCase();
-    const allFavorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
-    
-    if (!searchTerm) {
-        renderFavoritesList(allFavorites);
-        return;
+function getFilteredFavorites() {
+    let favorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
+
+    // 搜索过滤
+    if (currentSearchTerm) {
+        favorites = favorites.filter(item => {
+            if (item.original_sentence.toLowerCase().includes(currentSearchTerm)) return true;
+            if (item.patternAnalysis.formula.toLowerCase().includes(currentSearchTerm)) return true;
+            if (item.keyPhrases.some(p => p.cn.toLowerCase().includes(currentSearchTerm) || p.en.toLowerCase().includes(currentSearchTerm))) return true;
+            if (Object.values(item.scenarioSentences).flat().some(s => s.cn.toLowerCase().includes(currentSearchTerm) || s.en.toLowerCase().includes(currentSearchTerm))) return true;
+            if (item.transformations.some(t => t.cn.toLowerCase().includes(currentSearchTerm) || t.en.toLowerCase().includes(currentSearchTerm))) return true;
+            return false;
+        });
     }
 
-    const filteredFavorites = allFavorites.filter(item => {
-        // 搜索原始句子
-        if (item.original_sentence.toLowerCase().includes(searchTerm)) return true;
-        // 搜索句型公式
-        if (item.patternAnalysis.formula.toLowerCase().includes(searchTerm)) return true;
-        // 搜索重要词组
-        if (item.keyPhrases.some(p => p.cn.toLowerCase().includes(searchTerm) || p.en.toLowerCase().includes(searchTerm))) return true;
-        // 搜索场景例句
-        if (Object.values(item.scenarioSentences).flat().some(s => s.cn.toLowerCase().includes(searchTerm) || s.en.toLowerCase().includes(searchTerm))) return true;
-        // 搜索句型转换
-        if (item.transformations.some(t => t.cn.toLowerCase().includes(searchTerm) || t.en.toLowerCase().includes(searchTerm))) return true;
-        
-        return false;
+    // 复习次数筛选
+    const filterVal = (document.getElementById('review-filter') || {}).value || 'all';
+    favorites = favorites.filter(item => {
+        const count = (item._meta && item._meta.reviewCount) ? item._meta.reviewCount : 0;
+        if (filterVal === 'all') return true;
+        if (filterVal === '0') return count === 0;
+        if (filterVal === '1') return count === 1;
+        if (filterVal === '2') return count === 2;
+        if (filterVal === '3+') return count >= 3;
+        return true;
     });
 
-    currentPage = 1;
-    renderFavoritesList(filteredFavorites);
+    // 排序：未复习靠前，其次按收藏时间倒序
+    favorites = favorites.slice().sort((a, b) => {
+        const ar = (a._meta && a._meta.reviewCount) ? a._meta.reviewCount : 0;
+        const br = (b._meta && b._meta.reviewCount) ? b._meta.reviewCount : 0;
+        if (ar !== br) return ar - br;
+        const at = (a._meta && a._meta.favoritedAt) ? a._meta.favoritedAt : 0;
+        const bt = (b._meta && b._meta.favoritedAt) ? b._meta.favoritedAt : 0;
+        return bt - at;
+    });
+
+    return favorites;
 }
