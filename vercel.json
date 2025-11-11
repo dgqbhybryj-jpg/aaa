@@ -19,5 +19,13 @@
       "src": "/(.*)",
       "dest": "/static/$1"
     }
+  ],
+  "headers": [
+    {
+      "source": "/static/(.*)\.(js|css)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
   ]
 }
