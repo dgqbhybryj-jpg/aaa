@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('analyze-btn').addEventListener('click', handleAnalysis);
     document.body.addEventListener('click', handleBodyClick);
     document.getElementById('select-all-checkbox').addEventListener('change', handleSelectAll);
+    document.getElementById('favorites-search').addEventListener('input', handleFavoriteSearch);
     
     // --- "回到顶部"按钮逻辑 ---
     const backToTopBtn = document.getElementById('back-to-top-btn');
@@ -136,6 +137,8 @@ function handleBodyClick(event) {
         const resultDiv = interactionArea.nextElementSibling;
         const correctSentence = target.dataset.correct;
         compareSentences(inputField.value, correctSentence, resultDiv);
+    } else if (event.target.classList.contains('edit-icon')) {
+        makeEditable(event.target);
     }
 }
 
@@ -150,19 +153,9 @@ async function handleAnalysis() {
     const resultsContainer = document.getElementById('results-container');
     const analyzeBtn = document.getElementById('analyze-btn');
     
-    // 重置收藏和导出按钮的状态
-    const favoriteButtons = document.querySelectorAll('.favorite-action-btn');
-    const exportButtons = document.querySelectorAll('.export-action-btn');
-    favoriteButtons.forEach(btn => {
-        btn.classList.add('hidden');
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-star"></i> 收藏';
-    });
-    exportButtons.forEach(btn => btn.classList.add('hidden'));
-
-
     loadingDiv.classList.remove('hidden');
     resultsContainer.innerHTML = '';
+    document.getElementById('footer-actions').classList.add('hidden'); // 分析开始时隐藏底部按钮
     analyzeBtn.disabled = true;
     analyzeBtn.textContent = '分析中...';
 
@@ -203,34 +196,81 @@ function displayResults(data) {
     `).join('');
     container.innerHTML += `<div class="card"><h2 class="card-title">句型转换</h2>${transformationsHtml}</div>`;
     
-    // 启用并设置页面中的收藏和导出按钮
-    const favoriteButtons = document.querySelectorAll('.favorite-action-btn');
-    const exportButtons = document.querySelectorAll('.export-action-btn');
+    // 分析结束后，显示底部的操作按钮
+    const footerActions = document.getElementById('footer-actions');
+    footerActions.classList.remove('hidden');
+
+    const favoriteBtn = document.getElementById('footer-favorite-btn');
+    const exportBtn = document.getElementById('footer-export-btn');
 
     const isFavorited = (JSON.parse(localStorage.getItem('sentenceFavorites')) || []).some(item => item.original_sentence === data.original_sentence);
 
-    favoriteButtons.forEach(btn => {
-        btn.classList.remove('hidden');
-        if (isFavorited) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-check"></i> 已收藏';
-            btn.classList.add('favorited');
-        } else {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-star"></i> 收藏';
-            btn.classList.remove('favorited');
-            // 为按钮添加点击事件，如果它还没有的话
-            if (!btn.dataset.listenerAttached) {
-                btn.addEventListener('click', () => handleAddToFavorites(data));
-                btn.dataset.listenerAttached = 'true';
-            }
-        }
+    if (isFavorited) {
+        favoriteBtn.disabled = true;
+        favoriteBtn.innerHTML = '<i class="fas fa-check"></i> 已收藏';
+        favoriteBtn.classList.add('favorited');
+    } else {
+        favoriteBtn.disabled = false;
+        favoriteBtn.innerHTML = '<i class="fas fa-star"></i> 收藏';
+        favoriteBtn.classList.remove('favorited');
+    }
+    
+    // 移除旧的监听器并添加新的，以避免重复绑定
+    const newFavBtn = favoriteBtn.cloneNode(true);
+    favoriteBtn.parentNode.replaceChild(newFavBtn, favoriteBtn);
+    newFavBtn.addEventListener('click', () => handleAddToFavorites(data));
+
+    // 为导出按钮绑定事件
+    const newExportBtn = exportBtn.cloneNode(true);
+    exportBtn.parentNode.replaceChild(newExportBtn, exportBtn);
+    newExportBtn.addEventListener('click', () => handleExportToExcel(data));
+}
+
+function handleExportToExcel(data) {
+    // 1. 创建数据数组
+    const exportData = [];
+    exportData.push(['项目', '中文', '英文']); // 添加表头
+
+    // 2. 添加基本信息
+    exportData.push(['原句', '', data.original_sentence]);
+    exportData.push(['句型公式', data.patternAnalysis.formula, '']);
+    exportData.push(['语法点', data.patternAnalysis.grammarPoint, '']);
+
+    // 3. 添加重要词组
+    exportData.push([]); // 添加一个空行作为分隔
+    exportData.push(['重要词组']);
+    data.keyPhrases.forEach(phrase => {
+        exportData.push(['', phrase.cn, phrase.en]);
     });
 
-    exportButtons.forEach(btn => {
-        btn.classList.remove('hidden');
-        // 未来可以在此为导出按钮添加事件
+    // 4. 添加不同场景高频表达
+    exportData.push([]);
+    exportData.push(['不同场景高频表达']);
+    Object.entries(data.scenarioSentences).forEach(([title, sentences]) => {
+        exportData.push(['', title, '']); // 场景标题
+        sentences.forEach(s => {
+            exportData.push(['', s.cn, s.en]);
+        });
     });
+
+    // 5. 添加句型转换
+    exportData.push([]);
+    exportData.push(['句型转换']);
+    data.transformations.forEach(t => {
+        exportData.push([t.type, t.cn, t.en]);
+    });
+
+    // 6. 使用 SheetJS 生成 Excel
+    const worksheet = XLSX.utils.aoa_to_sheet(exportData);
+    
+    // 设置列宽
+    worksheet['!cols'] = [{ wch: 20 }, { wch: 40 }, { wch: 40 }];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, '句子分析');
+
+    // 7. 下载文件
+    XLSX.writeFile(workbook, `句子分析-${data.original_sentence.slice(0, 10)}.xlsx`);
 }
 
 function handleAddToFavorites(analysisData) {
@@ -245,13 +285,11 @@ function handleAddToFavorites(analysisData) {
         localStorage.setItem('sentenceFavorites', JSON.stringify(existingFavorites));
         alert(`句子 "${sentence}" 已成功添加到收藏夹！`);
         
-        // 更新所有收藏按钮的状态
-        const favoriteButtons = document.querySelectorAll('.favorite-action-btn');
-        favoriteButtons.forEach(btn => {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-check"></i> 已收藏';
-            btn.classList.add('favorited');
-        });
+        // 更新底部收藏按钮的状态
+        const favoriteBtn = document.getElementById('footer-favorite-btn');
+        favoriteBtn.disabled = true;
+        favoriteBtn.innerHTML = '<i class="fas fa-check"></i> 已收藏';
+        favoriteBtn.classList.add('favorited');
     } catch (error) {
         console.error("添加到收藏夹时发生错误:", error);
         alert("收藏失败，请检查浏览器控制台获取更多信息。");
@@ -271,17 +309,23 @@ function showFavorites() {
     document.getElementById('show-analyzer-btn').classList.remove('active');
     document.getElementById('show-favorites-btn').classList.add('active');
     currentPage = 1;
+    document.getElementById('favorites-search').value = ''; // 清空搜索框
     renderFavoritesList();
 }
 
-function renderFavoritesList() {
-    const favorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
+function renderFavoritesList(favoritesToShow) {
+    const favorites = favoritesToShow || JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
     const container = document.getElementById('favorites-list-container');
     const controlsHeader = document.getElementById('review-controls-header');
     document.getElementById('review-area').innerHTML = '';
 
     if (favorites.length === 0) {
-        container.innerHTML = '<div class="card"><p>您的收藏夹是空的，快去分析并收藏句子吧！</p></div>';
+        const searchTerm = document.getElementById('favorites-search').value;
+        if (searchTerm) {
+            container.innerHTML = '<div class="card"><p>没有找到匹配的收藏结果。</p></div>';
+        } else {
+            container.innerHTML = '<div class="card"><p>您的收藏夹是空的，快去分析并收藏句子吧！</p></div>';
+        }
         controlsHeader.classList.add('hidden');
         document.getElementById('pagination-controls').innerHTML = '';
         return;
@@ -292,8 +336,9 @@ function renderFavoritesList() {
     const endIndex = startIndex + itemsPerPage;
     const paginatedItems = favorites.slice(startIndex, endIndex);
 
-    container.innerHTML = paginatedItems.map((item, index) => {
-        const originalIndex = startIndex + index;
+    container.innerHTML = paginatedItems.map((item) => {
+        // 找到当前项在完整列表中的原始索引
+        const originalIndex = allFavorites.findIndex(fav => fav.original_sentence === item.original_sentence);
         return `
         <div class="favorite-item card">
             <div style="display: flex; align-items: center;">
@@ -341,7 +386,9 @@ function renderPaginationControls(totalItems) {
 
 function changePage(newPage) {
     currentPage = newPage;
-    renderFavoritesList();
+    // 重新执行搜索以渲染正确的页面
+    const searchTerm = document.getElementById('favorites-search').value;
+    handleFavoriteSearch({ target: { value: searchTerm } });
 }
 
 function deleteFavorite(indexToDelete) {
@@ -355,7 +402,9 @@ function deleteFavorite(indexToDelete) {
         currentPage = totalPages > 0 ? totalPages : 1;
     }
     
-    renderFavoritesList();
+    // 删除后重新渲染当前搜索结果
+    const searchTerm = document.getElementById('favorites-search').value;
+    handleFavoriteSearch({ target: { value: searchTerm } });
 }
 
 function handleSelectAll(event) {
@@ -448,4 +497,32 @@ function exitReviewMode() {
     document.getElementById('pagination-controls').classList.remove('hidden');
     document.getElementById('review-area').innerHTML = '';
     renderFavoritesList();
+}
+
+function handleFavoriteSearch(event) {
+    const searchTerm = event.target.value.toLowerCase();
+    const allFavorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
+    
+    if (!searchTerm) {
+        renderFavoritesList(allFavorites);
+        return;
+    }
+
+    const filteredFavorites = allFavorites.filter(item => {
+        // 搜索原始句子
+        if (item.original_sentence.toLowerCase().includes(searchTerm)) return true;
+        // 搜索句型公式
+        if (item.patternAnalysis.formula.toLowerCase().includes(searchTerm)) return true;
+        // 搜索重要词组
+        if (item.keyPhrases.some(p => p.cn.toLowerCase().includes(searchTerm) || p.en.toLowerCase().includes(searchTerm))) return true;
+        // 搜索场景例句
+        if (Object.values(item.scenarioSentences).flat().some(s => s.cn.toLowerCase().includes(searchTerm) || s.en.toLowerCase().includes(searchTerm))) return true;
+        // 搜索句型转换
+        if (item.transformations.some(t => t.cn.toLowerCase().includes(searchTerm) || t.en.toLowerCase().includes(searchTerm))) return true;
+        
+        return false;
+    });
+
+    currentPage = 1;
+    renderFavoritesList(filteredFavorites);
 }

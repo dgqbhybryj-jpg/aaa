@@ -184,7 +184,9 @@ button:hover {
     transform: translateY(-2px);
 }
 #loading { text-align: center; padding: 20px; font-style: italic; color: var(--subtle-text-color); }
-.hidden { display: none; }
+.hidden {
+    display: none !important;
+}
 
 #favorites-btn {
     width: auto;
@@ -619,4 +621,42 @@ button:hover {
     color: #fff;
     cursor: not-allowed;
     opacity: 0.8;
+}
+
+/* 编辑功能样式 */
+.edit-icon {
+    cursor: pointer;
+    margin-left: 8px;
+    color: #007bff;
+    font-size: 0.9em;
+}
+
+.edit-icon:hover {
+    color: #0056b3;
+}
+
+.edit-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.edit-input {
+    flex-grow: 1;
+    padding: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.save-btn {
+    padding: 4px 8px;
+    border: none;
+    background-color: #28a745;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.save-btn:hover {
+    background-color: #218838;
 }
