@@ -41,7 +41,7 @@ def call_ai_for_analysis(sentence):
         - "formula": A concise grammatical formula for the sentence pattern (e.g., "I'm not sure if + Subject + Verb").
         - "grammarPoint": A brief explanation of the key grammar point in Chinese.
 
-    2.  "keyPhrases": An array of objects. Each object should have two keys: "cn" (Chinese translation) and "en" (the English phrase). Extract 3-5 important phrases.
+    2.  "keyPhrases": An array of objects. Each object should have two keys: "cn" (Chinese translation) and "en" (the English phrase). Extract 3-5 important phrases. Each phrase should ideally be more than one word, unless it is a single but very important keyword. Avoid extracting simple auxiliary verbs like "is", "am", "are", "do", "does" by themselves.
 
     3.  "scenarioSentences": An object with keys representing different scenarios (e.g., "Daily Conversation", "Work Scenario", "Study Scenario"). The value for each key should be an array of objects, where each object has "cn" and "en" keys. Provide 2-3 examples per scenario.
 
