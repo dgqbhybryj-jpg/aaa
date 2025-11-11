@@ -1,24 +1,12 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "api/analyze.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "static/**",
-      "use": "@vercel/static"
-    }
+    { "src": "api/analyze.py", "use": "@vercel/python" },
+    { "src": "static/**", "use": "@vercel/static" }
   ],
-  "routes": [
-    {
-      "src": "/api/analyze",
-      "dest": "/api/analyze.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/static/$1"
-    }
+  "rewrites": [
+    { "source": "/api/analyze", "destination": "/api/analyze.py" },
+    { "source": "/(.*)", "destination": "/static/$1" }
   ],
   "headers": [
     {
