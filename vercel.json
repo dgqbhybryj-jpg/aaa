@@ -22,7 +22,7 @@
   ],
   "headers": [
     {
-      "source": "/static/(.*)\.(js|css)",
+      "source": "/static/(.*)\\.(js|css)",
       "headers": [
         { "key": "Cache-Control", "value": "no-store" }
       ]
