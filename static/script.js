@@ -9,6 +9,14 @@ let currentSearchTerm = '';
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 
+if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+}
+
 // 等待语音列表可用
 function waitForVoices(timeoutMs = 1000) {
     return new Promise((resolve) => {
@@ -39,20 +47,29 @@ if (synth.onvoiceschanged !== undefined) {
 // --- 核心功能 ---
 async function speak(text) {
     try {
-        if (!text) return;
-        // 一些浏览器需要在用户手势中resume
-        if (synth.paused) synth.resume();
-        synth.cancel();
+        if (!text || typeof text !== 'string') {
+            console.error('Speak function called with invalid text:', text);
+            return;
+        }
+        if (synth.speaking) {
+            synth.cancel();
+            // 添加一个小的延迟确保cancel完成
+            setTimeout(() => speak(text), 100);
+            return;
+        }
         await waitForVoices();
         const utterThis = new SpeechSynthesisUtterance(text);
         utterThis.lang = 'en-GB';
         const britishVoice = voices.find(voice => voice.lang === 'en-GB') || voices.find(voice => voice.lang && voice.lang.startsWith('en-'));
-        if (britishVoice) utterThis.voice = britishVoice;
+        if (britishVoice) {
+            utterThis.voice = britishVoice;
+        }
         synth.speak(utterThis);
     } catch (e) {
-        console.error('speech error', e);
+        console.error('Speech synthesis error:', e);
     }
 }
+
 
 function startSpeechRecognition(micIcon, targetInput) {
     if (!recognition) {
@@ -81,6 +98,7 @@ function startSpeechRecognition(micIcon, targetInput) {
     };
     recognition.start();
 }
+
 
 // API 调用函数
 async function analyzeSentence(sentence) {
@@ -115,19 +133,31 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('analyze-btn').addEventListener('click', handleAnalysis);
     document.body.addEventListener('click', handleBodyClick);
     document.getElementById('select-all-checkbox').addEventListener('change', handleSelectAll);
-    document.getElementById('favorites-search').addEventListener('input', handleFavoriteSearch);
+    
+    // 收藏页搜索功能
+    const searchInput = document.getElementById('favorites-search');
+    searchInput.addEventListener('input', handleFavoriteSearch);
+    searchInput.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') handleFavoriteSearch({ target: e.target });
+    });
     const searchIcon = document.querySelector('.search-icon');
     if (searchIcon) {
         searchIcon.style.cursor = 'pointer';
-        searchIcon.addEventListener('click', () => handleFavoriteSearch({ target: { value: document.getElementById('favorites-search').value } }));
+        searchIcon.addEventListener('click', () => handleFavoriteSearch({ target: searchInput }));
     }
-    document.getElementById('favorites-search').addEventListener('keyup', (e) => {
-        if (e.key === 'Enter') handleFavoriteSearch({ target: { value: e.target.value } });
-    });
+
+    // 收藏页筛选功能
     const reviewFilter = document.getElementById('review-filter');
     if (reviewFilter) {
-        reviewFilter.addEventListener('change', () => { currentPage = 1; renderFavoritesList(getFilteredFavorites()); });
+        reviewFilter.addEventListener('change', () => { 
+            currentPage = 1; 
+            renderFavoritesList(getFilteredFavorites()); 
+        });
     }
+
+    // 复习按钮
+    document.getElementById('start-review-btn').addEventListener('click', startReviewSession);
+    document.getElementById('start-review-btn-main').addEventListener('click', startReviewSession);
     
     // --- "回到顶部"按钮逻辑 ---
     const backToTopBtn = document.getElementById('back-to-top-btn');
@@ -147,6 +177,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     showAnalyzer();
 });
+
+function handleFavoriteSearch(event) {
+    currentSearchTerm = (event.target.value || '').toLowerCase();
+    currentPage = 1;
+    renderFavoritesList(getFilteredFavorites());
+}
 
 // 使中文文本可编辑
 document.body.addEventListener('click', function(event) {
@@ -177,7 +213,6 @@ function makeEditable(icon) {
     container.appendChild(input);
     container.appendChild(saveBtn);
 
-    // 隐藏编辑图标和原文本
     icon.style.display = 'none';
     textSpan.style.display = 'none';
     parent.insertBefore(container, textSpan.nextSibling);
@@ -185,7 +220,6 @@ function makeEditable(icon) {
     saveBtn.onclick = function() {
         const newText = input.value;
 
-        // 根据路径更新currentAnalysisData
         const keys = path.split('.');
         let obj = currentAnalysisData;
         for (let i = 0; i < keys.length - 1; i++) {
@@ -193,13 +227,11 @@ function makeEditable(icon) {
         }
         obj[keys[keys.length - 1]] = newText;
 
-        // 更新UI
         textSpan.textContent = newText;
         parent.removeChild(container);
         icon.style.display = '';
         textSpan.style.display = '';
 
-        // 如果该句子在收藏夹中，同步更新收藏数据
         const favorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
         const favoritedItem = favorites.find(item => item.original_sentence === currentAnalysisData.original_sentence);
         if (favoritedItem) {
@@ -213,6 +245,37 @@ function makeEditable(icon) {
     };
 }
 
+function handleBodyClick(event) {
+    // Speaker Icon
+    if (event.target.classList.contains('speaker-icon')) {
+        speak(event.target.dataset.text);
+    }
+
+    // Mic Icon for review
+    if (event.target.classList.contains('review-mic-icon')) {
+        const input = event.target.nextElementSibling;
+        if (input && input.classList.contains('user-transcription')) {
+            startSpeechRecognition(event.target, input);
+        }
+    }
+
+    // Check Button for review
+    if (event.target.classList.contains('check-btn')) {
+        const correct = event.target.dataset.correct;
+        const sent = event.target.dataset.sent;
+        const rowkey = event.target.dataset.rowkey;
+        const interactionArea = event.target.parentElement;
+        const userInput = interactionArea.querySelector('.user-transcription').value;
+        const diffResult = interactionArea.nextElementSibling;
+
+        if (diffResult && diffResult.classList.contains('diff-result')) {
+            compareSentences(userInput, correct, diffResult);
+            markProgress(sent, rowkey);
+        }
+    }
+}
+
+
 async function handleAnalysis() {
     const sentence = document.getElementById('sentence-input').value.trim();
     if (!sentence) {
@@ -224,7 +287,6 @@ async function handleAnalysis() {
     const resultsContainer = document.getElementById('results-container');
     const analyzeBtn = document.getElementById('analyze-btn');
     
-    // 重置并禁用顶部按钮，隐藏底部按钮
     const headerFavBtn = document.getElementById('header-favorite-btn');
     const headerExportBtn = document.getElementById('header-export-btn');
     headerFavBtn.disabled = true;
@@ -234,7 +296,7 @@ async function handleAnalysis() {
 
     loadingDiv.classList.remove('hidden');
     resultsContainer.innerHTML = '';
-    document.getElementById('footer-actions').classList.add('hidden'); // 分析开始时隐藏底部按钮
+    document.getElementById('footer-actions').classList.add('hidden');
     analyzeBtn.disabled = true;
     analyzeBtn.textContent = '分析中...';
 
@@ -247,15 +309,13 @@ async function handleAnalysis() {
     } finally {
         loadingDiv.classList.add('hidden');
         analyzeBtn.disabled = false;
-        analyzeBtn.textContent = '分析句子';
+        analyzeBtn.textContent = '立即分析';
     }
 }
 
 function displayResults(data) {
     const container = document.getElementById('results-container');
     container.innerHTML = '';
-
-    // 保存到全局，供编辑/导出/收藏使用（对象会被原地修改）
     currentAnalysisData = data;
 
     const addSpeaker = (text) => `${text} <span class="speaker-icon" data-text="${text.replace(/"/g, '&quot;')}">🔊</span>`;
@@ -283,7 +343,6 @@ function displayResults(data) {
     `).join('');
     container.innerHTML += `<div class="card"><h2 class="card-title">句型转换</h2>${transformationsHtml}</div>`;
 
-    // 分析结束后，显示底部的操作按钮
     const footerActions = document.getElementById('footer-actions');
     footerActions.classList.remove('hidden');
 
@@ -310,7 +369,6 @@ function displayResults(data) {
     applyFavState(favoriteBtn, isFavorited);
     applyFavState(headerFavBtn2, isFavorited);
     
-    // 绑定收藏事件（两处按钮）
     const bindFav = (btn) => {
         if (!btn) return;
         const newBtn = btn.cloneNode(true);
@@ -322,7 +380,6 @@ function displayResults(data) {
     bindFav(favoriteBtn);
     bindFav(headerFavBtn2);
 
-    // 绑定导出事件（两处按钮）
     const bindExport = (btn) => {
         if (!btn) return;
         const newBtn = btn.cloneNode(true);
@@ -334,31 +391,24 @@ function displayResults(data) {
     bindExport(headerExportBtn2);
 }
 
-// 导出保持不变，但使用currentAnalysisData
 function handleExportToExcel(data) {
-    // 1. 创建数据数组
     const exportData = [];
     exportData.push(['项目', '中文', '英文']);
-    // 2. 基本信息
     exportData.push(['原句', '', data.original_sentence]);
     exportData.push(['句型公式', data.patternAnalysis.formula, '']);
     exportData.push(['语法点', data.patternAnalysis.grammarPoint, '']);
-    // 3. 重要词组
     exportData.push([]);
     exportData.push(['重要词组']);
     data.keyPhrases.forEach(phrase => exportData.push(['', phrase.cn, phrase.en]));
-    // 4. 场景表达
     exportData.push([]);
     exportData.push(['不同场景高频表达']);
     Object.entries(data.scenarioSentences).forEach(([title, sentences]) => {
         exportData.push(['', title, '']);
         sentences.forEach(s => exportData.push(['', s.cn, s.en]));
     });
-    // 5. 句型转换
     exportData.push([]);
     exportData.push(['句型转换']);
     data.transformations.forEach(t => exportData.push([t.type, t.cn, t.en]));
-    // 6. 生成
     const worksheet = XLSX.utils.aoa_to_sheet(exportData);
     worksheet['!cols'] = [{ wch: 20 }, { wch: 40 }, { wch: 40 }];
     const workbook = XLSX.utils.book_new();
@@ -366,7 +416,6 @@ function handleExportToExcel(data) {
     XLSX.writeFile(workbook, `句子分析-${data.original_sentence.slice(0, 10)}.xlsx`);
 }
 
-// 收藏时初始化元信息
 function handleAddToFavorites(analysisData) {
     try {
         const existingFavorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
@@ -381,7 +430,6 @@ function handleAddToFavorites(analysisData) {
         localStorage.setItem('sentenceFavorites', JSON.stringify(existingFavorites));
         alert(`句子 "${sentence}" 已成功添加到收藏夹！`);
         
-        // 同步顶部和底部收藏按钮
         const favoriteBtn = document.getElementById('footer-favorite-btn');
         const headerFavBtn = document.getElementById('header-favorite-btn');
         [favoriteBtn, headerFavBtn].forEach(btn => {
@@ -414,14 +462,12 @@ function showFavorites() {
     renderFavoritesList(getFilteredFavorites());
 }
 
-// 收藏页渲染：增加复习次数显示与排序
 function renderFavoritesList(favoritesToShow) {
     let favorites = favoritesToShow || JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
     const container = document.getElementById('favorites-list-container');
     const controlsHeader = document.getElementById('review-controls-header');
     document.getElementById('review-area').innerHTML = '';
 
-    // 排序：未复习优先，时间倒序
     favorites = favorites.slice().sort((a, b) => {
         const ar = (a._meta && a._meta.reviewCount) ? a._meta.reviewCount : 0;
         const br = (b._meta && b._meta.reviewCount) ? b._meta.reviewCount : 0;
@@ -433,11 +479,7 @@ function renderFavoritesList(favoritesToShow) {
 
     if (favorites.length === 0) {
         const searchTerm = document.getElementById('favorites-search').value;
-        if (searchTerm) {
-            container.innerHTML = '<div class="card"><p>没有找到匹配的收藏结果。</p></div>';
-        } else {
-            container.innerHTML = '<div class="card"><p>您的收藏夹是空的，快去分析并收藏句子吧！</p></div>';
-        }
+        container.innerHTML = `<div class="card"><p>${searchTerm ? '没有找到匹配的收藏结果。' : '您的收藏夹是空的，快去分析并收藏句子吧！'}</p></div>`;
         controlsHeader.classList.add('hidden');
         document.getElementById('pagination-controls').innerHTML = '';
         return;
@@ -445,9 +487,7 @@ function renderFavoritesList(favoritesToShow) {
 
     controlsHeader.classList.remove('hidden');
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const allFavorites = favorites;
-    const paginatedItems = favorites.slice(startIndex, endIndex);
+    const paginatedItems = favorites.slice(startIndex, startIndex + itemsPerPage);
 
     const fullList = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
     container.innerHTML = paginatedItems.map((item) => {
@@ -455,12 +495,12 @@ function renderFavoritesList(favoritesToShow) {
         const count = (item._meta && item._meta.reviewCount) ? item._meta.reviewCount : 0;
         return `
         <div class="favorite-item card">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <input type="checkbox" class="review-checkbox" data-index="${originalIndex}" data-sent="${item.original_sentence}">
-                    <span class="favorite-item-title">${item.patternAnalysis.formula}</span>
+            <div class="favorite-item-main">
+                <input type="checkbox" class="review-checkbox" data-index="${originalIndex}">
+                <div class="favorite-item-content">
+                    <p class="favorite-sentence">${item.original_sentence}</p>
+                    <span class="review-count">复习 ${count} 次</span>
                 </div>
-                <span class="review-count-badge">复习 ${count} 次</span>
             </div>
             <div class="favorite-item-controls">
                 <button class="delete-fav-btn" data-index="${originalIndex}">删除</button>
@@ -471,10 +511,21 @@ function renderFavoritesList(favoritesToShow) {
     container.querySelectorAll('.delete-fav-btn').forEach(btn => {
         btn.addEventListener('click', (e) => deleteFavorite(parseInt(e.target.dataset.index)));
     });
+    
+    container.querySelectorAll('.review-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateReviewButtonsState);
+    });
 
-    document.getElementById('start-review-btn').onclick = startReviewSession;
     renderPaginationControls(favorites.length);
     document.getElementById('select-all-checkbox').checked = false;
+    updateReviewButtonsState(); // Set initial button state
+}
+
+function updateReviewButtonsState() {
+    const selectedCount = document.querySelectorAll('#favorites-list-container .review-checkbox:checked').length;
+    const isAnySelected = selectedCount > 0;
+    document.getElementById('start-review-btn').disabled = !isAnySelected;
+    document.getElementById('start-review-btn-main').disabled = !isAnySelected;
 }
 
 function renderPaginationControls(totalItems) {
@@ -524,9 +575,9 @@ function handleSelectAll(event) {
     document.querySelectorAll('#favorites-list-container .review-checkbox').forEach(checkbox => {
         checkbox.checked = isChecked;
     });
+    updateReviewButtonsState();
 }
 
-// 比对函数保持忽略大小写
 function compareSentences(userInput, correctSentence, resultContainer) {
     const process = (str) => str.toLowerCase().replace(/[.,?!]/g, '');
     const diff = Diff.diffWords(process(correctSentence), process(userInput));
@@ -538,7 +589,6 @@ function compareSentences(userInput, correctSentence, resultContainer) {
     resultContainer.innerHTML = `您的回答对比：${html}`;
 }
 
-// 复习进度管理
 function initReviewTargets(items) {
     const progress = JSON.parse(localStorage.getItem('reviewProgress') || '{}');
     items.forEach(item => {
@@ -546,7 +596,7 @@ function initReviewTargets(items) {
         if (!progress[item.original_sentence]) {
             progress[item.original_sentence] = { total, done: [] };
         } else {
-            progress[item.original_sentence].total = total; // 更新总数
+            progress[item.original_sentence].total = total;
         }
     });
     localStorage.setItem('reviewProgress', JSON.stringify(progress));
@@ -560,9 +610,7 @@ function markProgress(originalSentence, rowKey) {
     progress[originalSentence].done = Array.from(done);
     localStorage.setItem('reviewProgress', JSON.stringify(progress));
 
-    // 判断是否完成一轮
     if (done.size >= (progress[originalSentence].total || 0)) {
-        // 增加复习次数
         const favorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
         const idx = favorites.findIndex(f => f.original_sentence === originalSentence);
         if (idx !== -1) {
@@ -570,7 +618,6 @@ function markProgress(originalSentence, rowKey) {
             favorites[idx]._meta.reviewCount = (favorites[idx]._meta.reviewCount || 0) + 1;
             localStorage.setItem('sentenceFavorites', JSON.stringify(favorites));
         }
-        // 重置此句子的进度
         progress[originalSentence].done = [];
         localStorage.setItem('reviewProgress', JSON.stringify(progress));
         alert(`已完成一句的全部复习：${originalSentence}`);
@@ -584,7 +631,7 @@ function startReviewSession() {
         return;
     }
     const allFavorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
-    const itemsToReview = selectedIndexes.map(index => allFavorites[index]);
+    const itemsToReview = selectedIndexes.map(index => allFavorites[index]).filter(Boolean);
 
     initReviewTargets(itemsToReview);
 
@@ -599,7 +646,7 @@ function displayReviewItems(items) {
     const createReviewRow = (cnText, enText, type = '', originalSentence) => {
         const safeEnText = enText.replace(/"/g, '&quot;');
         const typeSpan = type ? `<span class="type">${type}:</span>` : '';
-        const rowKey = safeEnText; // 以英文作为唯一键
+        const rowKey = safeEnText;
         return `
             <div class="two-column-grid transformation-item">
                 <div class="grid-item cn">
@@ -653,32 +700,31 @@ function exitReviewMode() {
 function getFilteredFavorites() {
     let favorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
 
-    // 搜索过滤
     if (currentSearchTerm) {
+        const term = currentSearchTerm.toLowerCase();
         favorites = favorites.filter(item => {
-            if (item.original_sentence.toLowerCase().includes(currentSearchTerm)) return true;
-            if (item.patternAnalysis.formula.toLowerCase().includes(currentSearchTerm)) return true;
-            if (item.keyPhrases.some(p => p.cn.toLowerCase().includes(currentSearchTerm) || p.en.toLowerCase().includes(currentSearchTerm))) return true;
-            if (Object.values(item.scenarioSentences).flat().some(s => s.cn.toLowerCase().includes(currentSearchTerm) || s.en.toLowerCase().includes(currentSearchTerm))) return true;
-            if (item.transformations.some(t => t.cn.toLowerCase().includes(currentSearchTerm) || t.en.toLowerCase().includes(currentSearchTerm))) return true;
+            if (item.original_sentence.toLowerCase().includes(term)) return true;
+            if (item.patternAnalysis.formula.toLowerCase().includes(term)) return true;
+            if (item.keyPhrases.some(p => p.cn.toLowerCase().includes(term) || p.en.toLowerCase().includes(term))) return true;
+            if (Object.values(item.scenarioSentences).flat().some(s => s.cn.toLowerCase().includes(term) || s.en.toLowerCase().includes(term))) return true;
+            if (item.transformations.some(t => t.cn.toLowerCase().includes(term) || t.en.toLowerCase().includes(term))) return true;
             return false;
         });
     }
 
-    // 复习次数筛选
-    const filterVal = (document.getElementById('review-filter') || {}).value || 'all';
-    favorites = favorites.filter(item => {
-        const count = (item._meta && item._meta.reviewCount) ? item._meta.reviewCount : 0;
-        if (filterVal === 'all') return true;
-        if (filterVal === '0') return count === 0;
-        if (filterVal === '1') return count === 1;
-        if (filterVal === '2') return count === 2;
-        if (filterVal === '3+') return count >= 3;
-        return true;
-    });
+    const filterVal = document.getElementById('review-filter').value;
+    if (filterVal !== 'all') {
+        favorites = favorites.filter(item => {
+            const count = (item._meta && item._meta.reviewCount) ? item._meta.reviewCount : 0;
+            if (filterVal === '0') return count === 0;
+            if (filterVal === '1') return count === 1;
+            if (filterVal === '2') return count === 2;
+            if (filterVal === '3+') return count >= 3;
+            return false;
+        });
+    }
 
-    // 排序：未复习靠前，其次按收藏时间倒序
-    favorites = favorites.slice().sort((a, b) => {
+    favorites.sort((a, b) => {
         const ar = (a._meta && a._meta.reviewCount) ? a._meta.reviewCount : 0;
         const br = (b._meta && b._meta.reviewCount) ? b._meta.reviewCount : 0;
         if (ar !== br) return ar - br;

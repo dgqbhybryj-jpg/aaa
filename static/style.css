@@ -259,6 +259,18 @@ button:hover {
     border-radius: 10px;
     margin-bottom: 15px;
 }
+.favorite-item-main {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-grow: 1; 
+}
+.favorite-item-content {
+    display: flex;
+    align-items: baseline; 
+    flex-wrap: wrap; 
+    gap: 10px;
+}
 .favorite-item-title {
     font-weight: 500;
 }
@@ -539,7 +551,6 @@ button:hover {
     top: 50%;
     transform: translateY(-50%);
     color: #999;
-    pointer-events: none;
 }
 .filter-container {
     display: flex;

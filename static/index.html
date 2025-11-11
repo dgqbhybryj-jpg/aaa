@@ -72,17 +72,22 @@
                         <option value="3+">复习3次及以上</option>
                     </select>
                 </div>
-                <button id="batch-export-btn" class="neo-btn">
-                    <i class="fas fa-download"></i> 批量导出
-                </button>
-            </div>
-            
-            <div id="review-controls-header" class="card hidden">
                 <div class="select-all-container">
                     <input type="checkbox" id="select-all-checkbox">
                     <label for="select-all-checkbox">全选当页</label>
                 </div>
-                <button id="start-review-btn" class="neo-btn">开始复习选中的句子</button>
+                <div class="favorites-actions">
+                    <button id="batch-export-btn" class="export-action-btn">
+                        <i class="fas fa-download"></i> 批量导出
+                    </button>
+                    <button id="start-review-btn-main" class="favorite-action-btn" disabled>
+                        <i class="fas fa-play-circle"></i> 开始复习
+                    </button>
+                </div>
+            </div>
+            
+            <div id="review-controls-header" class="card hidden">
+                <button id="start-review-btn" class="neo-btn" disabled>开始复习选中的句子</button>
             </div>
 
             <div id="favorites-list-container"></div>
