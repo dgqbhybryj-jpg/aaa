@@ -3,6 +3,7 @@ const synth = window.speechSynthesis;
 let voices = [];
 let currentPage = 1;
 const itemsPerPage = 5;
+let currentAnalysisData = null; // 当前分析结果对象，用于可编辑备注与导出/收藏同步
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
@@ -121,25 +122,69 @@ document.addEventListener('DOMContentLoaded', () => {
     showAnalyzer();
 });
 
-function handleBodyClick(event) {
-    const target = event.target;
-    if (target.classList.contains('speaker-icon')) {
-        speak(target.dataset.text);
-    } 
-    else if (target.classList.contains('review-mic-icon')) {
-        const interactionArea = target.closest('.review-interaction-area');
-        const inputField = interactionArea.querySelector('.user-transcription');
-        startSpeechRecognition(target, inputField);
-    }
-    else if (target.classList.contains('check-btn')) {
-        const interactionArea = target.closest('.review-interaction-area');
-        const inputField = interactionArea.querySelector('.user-transcription');
-        const resultDiv = interactionArea.nextElementSibling;
-        const correctSentence = target.dataset.correct;
-        compareSentences(inputField.value, correctSentence, resultDiv);
-    } else if (event.target.classList.contains('edit-icon')) {
+// 使中文文本可编辑
+document.body.addEventListener('click', function(event) {
+    if (event.target.classList.contains('edit-icon')) {
         makeEditable(event.target);
     }
+});
+
+function makeEditable(icon) {
+    const path = icon.dataset.path;
+    const textSpan = icon.previousElementSibling; // 与editable-text紧邻
+    if (!textSpan || !currentAnalysisData) return;
+
+    const currentText = textSpan.textContent;
+    const parent = textSpan.parentElement;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentText;
+    input.className = 'edit-input';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = '保存';
+    saveBtn.className = 'save-btn';
+
+    const container = document.createElement('div');
+    container.className = 'edit-container';
+    container.appendChild(input);
+    container.appendChild(saveBtn);
+
+    // 隐藏编辑图标和原文本
+    icon.style.display = 'none';
+    textSpan.style.display = 'none';
+    parent.insertBefore(container, textSpan.nextSibling);
+
+    saveBtn.onclick = function() {
+        const newText = input.value;
+
+        // 根据路径更新currentAnalysisData
+        const keys = path.split('.');
+        let obj = currentAnalysisData;
+        for (let i = 0; i < keys.length - 1; i++) {
+            obj = obj[keys[i]];
+        }
+        obj[keys[keys.length - 1]] = newText;
+
+        // 更新UI
+        textSpan.textContent = newText;
+        parent.removeChild(container);
+        icon.style.display = '';
+        textSpan.style.display = '';
+
+        // 如果该句子在收藏夹中，同步更新收藏数据
+        const favorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
+        const favoritedItem = favorites.find(item => item.original_sentence === currentAnalysisData.original_sentence);
+        if (favoritedItem) {
+            let favObj = favoritedItem;
+            for (let i = 0; i < keys.length - 1; i++) {
+                favObj = favObj[keys[i]];
+            }
+            favObj[keys[keys.length - 1]] = newText;
+            localStorage.setItem('sentenceFavorites', JSON.stringify(favorites));
+        }
+    };
 }
 
 async function handleAnalysis() {
@@ -153,6 +198,14 @@ async function handleAnalysis() {
     const resultsContainer = document.getElementById('results-container');
     const analyzeBtn = document.getElementById('analyze-btn');
     
+    // 重置并禁用顶部按钮，隐藏底部按钮
+    const headerFavBtn = document.getElementById('header-favorite-btn');
+    const headerExportBtn = document.getElementById('header-export-btn');
+    headerFavBtn.disabled = true;
+    headerFavBtn.innerHTML = '<i class="fas fa-star"></i> 收藏';
+    headerFavBtn.classList.remove('favorited');
+    headerExportBtn.disabled = true;
+
     loadingDiv.classList.remove('hidden');
     resultsContainer.innerHTML = '';
     document.getElementById('footer-actions').classList.add('hidden'); // 分析开始时隐藏底部按钮
@@ -175,104 +228,119 @@ async function handleAnalysis() {
 function displayResults(data) {
     const container = document.getElementById('results-container');
     container.innerHTML = '';
+
+    // 保存到全局，供编辑/导出/收藏使用（对象会被原地修改）
+    currentAnalysisData = data;
+
     const addSpeaker = (text) => `${text} <span class="speaker-icon" data-text="${text.replace(/"/g, '&quot;')}">🔊</span>`;
-    
+    const addEditable = (text, path) => `
+        <span class="editable-text" data-path="${path}">${text}</span>
+        <i class="fas fa-pencil-alt edit-icon" data-path="${path}"></i>
+    `;
+
     container.innerHTML += `<div class="card"><h2 class="card-title">句型与语法分析</h2><div class="pattern-analysis"><p><strong>句型公式:</strong></p><p class="formula">${data.patternAnalysis.formula}</p><p><strong>语法点:</strong></p><p>${data.patternAnalysis.grammarPoint}</p></div></div>`;
     
-    let keyPhrasesHtml = data.keyPhrases.map(phrase => `<div class="grid-item cn">${phrase.cn}</div><div class="grid-item en">${addSpeaker(phrase.en)}</div>`).join('');
+    let keyPhrasesHtml = data.keyPhrases.map((phrase, i) => `<div class="grid-item cn">${addEditable(phrase.cn, `keyPhrases.${i}.cn`)}</div><div class="grid-item en">${addSpeaker(phrase.en)}</div>`).join('');
     container.innerHTML += `<div class="card"><h2 class="card-title">重要词组提取</h2><div class="two-column-grid">${keyPhrasesHtml}</div></div>`;
     
-    let scenariosHtml = Object.entries(data.scenarioSentences).map(([title, sentences]) => `<div class="scenario-group"><h3 class="scenario-title">${title}</h3>${sentences.map(s => `<div class="two-column-grid"><div class="grid-item cn">${s.cn}</div><div class="grid-item en">${addSpeaker(s.en)}</div></div>`).join('')}</div>`).join('');
+    let scenariosHtml = Object.entries(data.scenarioSentences).map(([title, sentences]) => `<div class="scenario-group"><h3 class="scenario-title">${title}</h3>${sentences.map((s, j) => `<div class="two-column-grid"><div class="grid-item cn">${addEditable(s.cn, `scenarioSentences.${title}.${j}.cn`)}</div><div class="grid-item en">${addSpeaker(s.en)}</div></div>`).join('')}</div>`).join('');
     container.innerHTML += `<div class="card"><h2 class="card-title">不同场景高频表达</h2>${scenariosHtml}</div>`;
     
-    let transformationsHtml = data.transformations.map(t => `
+    let transformationsHtml = data.transformations.map((t, i) => `
         <div class="two-column-grid transformation-item">
             <div class="grid-item cn">
                 <span class="type">${t.type}:</span>
-                <span class="cn-text">${t.cn}</span>
+                ${addEditable(t.cn, `transformations.${i}.cn`)}
             </div>
             <div class="grid-item en">${addSpeaker(t.en)}</div>
         </div>
     `).join('');
     container.innerHTML += `<div class="card"><h2 class="card-title">句型转换</h2>${transformationsHtml}</div>`;
-    
+
     // 分析结束后，显示底部的操作按钮
     const footerActions = document.getElementById('footer-actions');
     footerActions.classList.remove('hidden');
 
     const favoriteBtn = document.getElementById('footer-favorite-btn');
     const exportBtn = document.getElementById('footer-export-btn');
+    const headerFavBtn2 = document.getElementById('header-favorite-btn');
+    const headerExportBtn2 = document.getElementById('header-export-btn');
 
     const isFavorited = (JSON.parse(localStorage.getItem('sentenceFavorites')) || []).some(item => item.original_sentence === data.original_sentence);
 
-    if (isFavorited) {
-        favoriteBtn.disabled = true;
-        favoriteBtn.innerHTML = '<i class="fas fa-check"></i> 已收藏';
-        favoriteBtn.classList.add('favorited');
-    } else {
-        favoriteBtn.disabled = false;
-        favoriteBtn.innerHTML = '<i class="fas fa-star"></i> 收藏';
-        favoriteBtn.classList.remove('favorited');
-    }
-    
-    // 移除旧的监听器并添加新的，以避免重复绑定
-    const newFavBtn = favoriteBtn.cloneNode(true);
-    favoriteBtn.parentNode.replaceChild(newFavBtn, favoriteBtn);
-    newFavBtn.addEventListener('click', () => handleAddToFavorites(data));
+    const applyFavState = (btn, fav) => {
+        if (!btn) return;
+        if (fav) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-check"></i> 已收藏';
+            btn.classList.add('favorited');
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-star"></i> 收藏';
+            btn.classList.remove('favorited');
+        }
+    };
 
-    // 为导出按钮绑定事件
-    const newExportBtn = exportBtn.cloneNode(true);
-    exportBtn.parentNode.replaceChild(newExportBtn, exportBtn);
-    newExportBtn.addEventListener('click', () => handleExportToExcel(data));
+    applyFavState(favoriteBtn, isFavorited);
+    applyFavState(headerFavBtn2, isFavorited);
+    
+    // 绑定收藏事件（两处按钮）
+    const bindFav = (btn) => {
+        if (!btn) return;
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        if (!isFavorited) {
+            newBtn.addEventListener('click', () => handleAddToFavorites(currentAnalysisData));
+        }
+    };
+    bindFav(favoriteBtn);
+    bindFav(headerFavBtn2);
+
+    // 绑定导出事件（两处按钮）
+    const bindExport = (btn) => {
+        if (!btn) return;
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        newBtn.disabled = false;
+        newBtn.addEventListener('click', () => handleExportToExcel(currentAnalysisData));
+    };
+    bindExport(exportBtn);
+    bindExport(headerExportBtn2);
 }
 
+// 导出保持不变，但使用currentAnalysisData
 function handleExportToExcel(data) {
     // 1. 创建数据数组
     const exportData = [];
-    exportData.push(['项目', '中文', '英文']); // 添加表头
-
-    // 2. 添加基本信息
+    exportData.push(['项目', '中文', '英文']);
+    // 2. 基本信息
     exportData.push(['原句', '', data.original_sentence]);
     exportData.push(['句型公式', data.patternAnalysis.formula, '']);
     exportData.push(['语法点', data.patternAnalysis.grammarPoint, '']);
-
-    // 3. 添加重要词组
-    exportData.push([]); // 添加一个空行作为分隔
+    // 3. 重要词组
+    exportData.push([]);
     exportData.push(['重要词组']);
-    data.keyPhrases.forEach(phrase => {
-        exportData.push(['', phrase.cn, phrase.en]);
-    });
-
-    // 4. 添加不同场景高频表达
+    data.keyPhrases.forEach(phrase => exportData.push(['', phrase.cn, phrase.en]));
+    // 4. 场景表达
     exportData.push([]);
     exportData.push(['不同场景高频表达']);
     Object.entries(data.scenarioSentences).forEach(([title, sentences]) => {
-        exportData.push(['', title, '']); // 场景标题
-        sentences.forEach(s => {
-            exportData.push(['', s.cn, s.en]);
-        });
+        exportData.push(['', title, '']);
+        sentences.forEach(s => exportData.push(['', s.cn, s.en]));
     });
-
-    // 5. 添加句型转换
+    // 5. 句型转换
     exportData.push([]);
     exportData.push(['句型转换']);
-    data.transformations.forEach(t => {
-        exportData.push([t.type, t.cn, t.en]);
-    });
-
-    // 6. 使用 SheetJS 生成 Excel
+    data.transformations.forEach(t => exportData.push([t.type, t.cn, t.en]));
+    // 6. 生成
     const worksheet = XLSX.utils.aoa_to_sheet(exportData);
-    
-    // 设置列宽
     worksheet['!cols'] = [{ wch: 20 }, { wch: 40 }, { wch: 40 }];
-
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, '句子分析');
-
-    // 7. 下载文件
     XLSX.writeFile(workbook, `句子分析-${data.original_sentence.slice(0, 10)}.xlsx`);
 }
 
+// 收藏时初始化元信息
 function handleAddToFavorites(analysisData) {
     try {
         const existingFavorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
@@ -281,15 +349,21 @@ function handleAddToFavorites(analysisData) {
             alert('这个句子已经收藏过了！');
             return;
         }
-        existingFavorites.unshift(analysisData); // 使用 unshift 将新项目添加到数组开头
+        const itemToSave = JSON.parse(JSON.stringify(analysisData));
+        itemToSave._meta = { favoritedAt: Date.now(), reviewCount: 0 };
+        existingFavorites.unshift(itemToSave);
         localStorage.setItem('sentenceFavorites', JSON.stringify(existingFavorites));
         alert(`句子 "${sentence}" 已成功添加到收藏夹！`);
         
-        // 更新底部收藏按钮的状态
+        // 同步顶部和底部收藏按钮
         const favoriteBtn = document.getElementById('footer-favorite-btn');
-        favoriteBtn.disabled = true;
-        favoriteBtn.innerHTML = '<i class="fas fa-check"></i> 已收藏';
-        favoriteBtn.classList.add('favorited');
+        const headerFavBtn = document.getElementById('header-favorite-btn');
+        [favoriteBtn, headerFavBtn].forEach(btn => {
+            if (!btn) return;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-check"></i> 已收藏';
+            btn.classList.add('favorited');
+        });
     } catch (error) {
         console.error("添加到收藏夹时发生错误:", error);
         alert("收藏失败，请检查浏览器控制台获取更多信息。");
@@ -313,11 +387,22 @@ function showFavorites() {
     renderFavoritesList();
 }
 
+// 收藏页渲染：增加复习次数显示与排序
 function renderFavoritesList(favoritesToShow) {
-    const favorites = favoritesToShow || JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
+    let favorites = favoritesToShow || JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
     const container = document.getElementById('favorites-list-container');
     const controlsHeader = document.getElementById('review-controls-header');
     document.getElementById('review-area').innerHTML = '';
+
+    // 排序：未复习优先，时间倒序
+    favorites = favorites.slice().sort((a, b) => {
+        const ar = (a._meta && a._meta.reviewCount) ? a._meta.reviewCount : 0;
+        const br = (b._meta && b._meta.reviewCount) ? b._meta.reviewCount : 0;
+        if (ar !== br) return ar - br;
+        const at = (a._meta && a._meta.favoritedAt) ? a._meta.favoritedAt : 0;
+        const bt = (b._meta && b._meta.favoritedAt) ? b._meta.favoritedAt : 0;
+        return bt - at;
+    });
 
     if (favorites.length === 0) {
         const searchTerm = document.getElementById('favorites-search').value;
@@ -334,16 +419,20 @@ function renderFavoritesList(favoritesToShow) {
     controlsHeader.classList.remove('hidden');
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
+    const allFavorites = favorites;
     const paginatedItems = favorites.slice(startIndex, endIndex);
 
     container.innerHTML = paginatedItems.map((item) => {
-        // 找到当前项在完整列表中的原始索引
         const originalIndex = allFavorites.findIndex(fav => fav.original_sentence === item.original_sentence);
+        const count = (item._meta && item._meta.reviewCount) ? item._meta.reviewCount : 0;
         return `
         <div class="favorite-item card">
-            <div style="display: flex; align-items: center;">
-                <input type="checkbox" class="review-checkbox" data-index="${originalIndex}">
-                <span class="favorite-item-title">${item.patternAnalysis.formula}</span>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" class="review-checkbox" data-index="${originalIndex}">
+                    <span class="favorite-item-title">${item.patternAnalysis.formula}</span>
+                </div>
+                <span class="review-count-badge">复习 ${count} 次</span>
             </div>
             <div class="favorite-item-controls">
                 <button class="delete-fav-btn" data-index="${originalIndex}">删除</button>
@@ -414,19 +503,55 @@ function handleSelectAll(event) {
     });
 }
 
+// 比对函数保持忽略大小写
 function compareSentences(userInput, correctSentence, resultContainer) {
     const process = (str) => str.toLowerCase().replace(/[.,?!]/g, '');
-    
     const diff = Diff.diffWords(process(correctSentence), process(userInput));
     let html = '';
-    
     diff.forEach((part) => {
-        const className = part.added ? 'diff-added' :
-                        part.removed ? 'diff-removed' : 'diff-correct';
+        const className = part.added ? 'diff-added' : part.removed ? 'diff-removed' : 'diff-correct';
         html += `<span class="${className}">${part.value}</span>`;
     });
-    
     resultContainer.innerHTML = `您的回答对比：${html}`;
+}
+
+// 复习进度管理
+function initReviewTargets(items) {
+    const progress = JSON.parse(localStorage.getItem('reviewProgress') || '{}');
+    items.forEach(item => {
+        const total = item.keyPhrases.length + Object.values(item.scenarioSentences).flat().length + item.transformations.length;
+        if (!progress[item.original_sentence]) {
+            progress[item.original_sentence] = { total, done: [] };
+        } else {
+            progress[item.original_sentence].total = total; // 更新总数
+        }
+    });
+    localStorage.setItem('reviewProgress', JSON.stringify(progress));
+}
+
+function markProgress(originalSentence, rowKey) {
+    const progress = JSON.parse(localStorage.getItem('reviewProgress') || '{}');
+    if (!progress[originalSentence]) return;
+    const done = new Set(progress[originalSentence].done || []);
+    done.add(rowKey);
+    progress[originalSentence].done = Array.from(done);
+    localStorage.setItem('reviewProgress', JSON.stringify(progress));
+
+    // 判断是否完成一轮
+    if (done.size >= (progress[originalSentence].total || 0)) {
+        // 增加复习次数
+        const favorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
+        const idx = favorites.findIndex(f => f.original_sentence === originalSentence);
+        if (idx !== -1) {
+            favorites[idx]._meta = favorites[idx]._meta || { favoritedAt: Date.now(), reviewCount: 0 };
+            favorites[idx]._meta.reviewCount = (favorites[idx]._meta.reviewCount || 0) + 1;
+            localStorage.setItem('sentenceFavorites', JSON.stringify(favorites));
+        }
+        // 重置此句子的进度
+        progress[originalSentence].done = [];
+        localStorage.setItem('reviewProgress', JSON.stringify(progress));
+        alert(`已完成一句的全部复习：${originalSentence}`);
+    }
 }
 
 function startReviewSession() {
@@ -437,6 +562,9 @@ function startReviewSession() {
     }
     const allFavorites = JSON.parse(localStorage.getItem('sentenceFavorites')) || [];
     const itemsToReview = selectedIndexes.map(index => allFavorites[index]);
+
+    initReviewTargets(itemsToReview);
+
     document.getElementById('favorites-list-container').classList.add('hidden');
     document.getElementById('review-controls-header').classList.add('hidden');
     document.getElementById('pagination-controls').classList.add('hidden');
@@ -445,10 +573,10 @@ function startReviewSession() {
 
 function displayReviewItems(items) {
     const reviewArea = document.getElementById('review-area');
-    const createReviewRow = (cnText, enText, type = '') => {
+    const createReviewRow = (cnText, enText, type = '', originalSentence) => {
         const safeEnText = enText.replace(/"/g, '&quot;');
         const typeSpan = type ? `<span class="type">${type}:</span>` : '';
-        
+        const rowKey = safeEnText; // 以英文作为唯一键
         return `
             <div class="two-column-grid transformation-item">
                 <div class="grid-item cn">
@@ -459,7 +587,7 @@ function displayReviewItems(items) {
                     <div class="review-interaction-area">
                         <span class="review-mic-icon">🎤</span>
                         <input type="text" class="user-transcription" placeholder="点击麦克风，说出英文翻译...">
-                        <button class="check-btn" data-correct="${safeEnText}">检查</button>
+                        <button class="check-btn" data-correct="${safeEnText}" data-sent="${originalSentence}" data-rowkey="${rowKey}">检查</button>
                     </div>
                     <div class="diff-result"></div>
                 </div>
@@ -472,13 +600,13 @@ function displayReviewItems(items) {
             <h2 class="card-title">复习: ${data.patternAnalysis.formula}</h2>
             
             <h3 class="scenario-title">重要词组提取</h3>
-            ${data.keyPhrases.map(p => createReviewRow(p.cn, p.en)).join('')}
+            ${data.keyPhrases.map(p => createReviewRow(p.cn, p.en, '', data.original_sentence)).join('')}
             
             <h3 class="scenario-title" style="margin-top: 20px;">不同场景高频表达</h3>
-            ${Object.entries(data.scenarioSentences).map(([_, sents]) => sents.map(s => createReviewRow(s.cn, s.en)).join('')).join('')}
+            ${Object.entries(data.scenarioSentences).map(([_, sents]) => sents.map(s => createReviewRow(s.cn, s.en, '', data.original_sentence)).join('')).join('')}
 
             <h3 class="scenario-title" style="margin-top: 20px;">句型转换</h3>
-            ${data.transformations.map(t => createReviewRow(t.cn, t.en, t.type)).join('')}
+            ${data.transformations.map(t => createReviewRow(t.cn, t.en, t.type, data.original_sentence)).join('')}
         </div>
     `).join('');
 
