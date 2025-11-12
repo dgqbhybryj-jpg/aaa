@@ -39,6 +39,13 @@
                 <button id="analyze-btn" class="neo-btn">立即分析</button>
             </div>
             <div id="loading" class="hidden">正在分析中，请稍候...</div>
+            <div id="voice-selector-container" class="card hidden">
+                <label for="voice-selector">选择朗读音色：</label>
+                <select id="voice-selector" class="neo-select">
+                    <option value="browser-default">浏览器默认 (英式)</option>
+                    <option value="moss_audio_80254f50-bc80-11f0-8d50-aebac59e892f">英式英语【媒体】(AI)</option>
+                </select>
+            </div>
             <div id="results-container"></div>
             <div id="footer-actions" class="footer-actions hidden">
                 <button id="footer-favorite-btn" class="favorite-action-btn">

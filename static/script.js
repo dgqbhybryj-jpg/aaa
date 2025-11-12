@@ -9,6 +9,7 @@ let currentSearchTerm = '';
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 let isRecognizing = false;
+let currentAudio = null;
 
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
@@ -52,20 +53,49 @@ async function speak(text) {
             console.error('Speak function called with invalid text:', text);
             return;
         }
-        if (synth.speaking) {
-            synth.cancel();
-            // 添加一个小的延迟确保cancel完成
-            setTimeout(() => speak(text), 100);
-            return;
+
+        // 停止当前可能在播放的任何音频
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
         }
-        await waitForVoices();
-        const utterThis = new SpeechSynthesisUtterance(text);
-        utterThis.lang = 'en-GB';
-        const britishVoice = voices.find(voice => voice.lang === 'en-GB') || voices.find(voice => voice.lang && voice.lang.startsWith('en-'));
-        if (britishVoice) {
-            utterThis.voice = britishVoice;
+        synth.cancel();
+
+        const selectedVoice = document.getElementById('voice-selector').value;
+
+        if (selectedVoice === 'browser-default') {
+            // 使用浏览器自带TTS
+            if (synth.speaking) {
+                setTimeout(() => speak(text), 100);
+                return;
+            }
+            await waitForVoices();
+            const utterThis = new SpeechSynthesisUtterance(text);
+            utterThis.lang = 'en-GB';
+            const britishVoice = voices.find(voice => voice.lang === 'en-GB') || voices.find(voice => voice.lang.startsWith('en-'));
+            if (britishVoice) {
+                utterThis.voice = britishVoice;
+            }
+            synth.speak(utterThis);
+        } else {
+            // 使用 MiniMax TTS
+            const response = await fetch('/api/text_to_speech', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, voice_id: selectedVoice })
+            });
+
+            if (response.ok) {
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                currentAudio = new Audio(audioUrl);
+                currentAudio.play();
+            } else {
+                const errorData = await response.json();
+                console.error('Failed to generate audio:', errorData);
+                alert(`音频生成失败: ${errorData.details || '未知错误'}`);
+            }
         }
-        synth.speak(utterThis);
     } catch (e) {
         console.error('Speech synthesis error:', e);
     }
@@ -332,6 +362,9 @@ function displayResults(data) {
     const container = document.getElementById('results-container');
     container.innerHTML = '';
     currentAnalysisData = data;
+
+    // 分析成功后显示音色选择器
+    document.getElementById('voice-selector-container').classList.remove('hidden');
 
     const addSpeaker = (text) => `${text} <span class="speaker-icon" data-text="${text.replace(/"/g, '&quot;')}">🔊</span>`;
     const addEditable = (text, path) => `

@@ -658,6 +658,20 @@ button:hover {
     box-shadow: 6px 6px 0px #000;
 }
 
+#voice-selector-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px;
+}
+#voice-selector-container label {
+    font-weight: 500;
+    font-size: 16px;
+}
+#voice-selector-container .neo-select {
+    min-width: 250px;
+}
+
 /* 中文解释区域 */
 .chinese-explanation {
     margin: 20px 0;
