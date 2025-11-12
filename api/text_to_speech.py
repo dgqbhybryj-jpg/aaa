@@ -50,23 +50,14 @@ def app(environ, start_response):
 
         # --- MiniMax API 调用 ---
         api_key = os.getenv("MINIMAX_API_KEY")
-        group_id = os.getenv("MINIMAX_GROUP_ID")
 
         if not api_key:
             start_response('500 Internal Server Error', headers)
             error_msg = 'MINIMAX_API_KEY environment variable must be set'
             return [json.dumps({'error': error_msg}).encode('utf-8')]
             
-        if not group_id:
-            start_response('500 Internal Server Error', headers)
-            error_msg = 'MINIMAX_GROUP_ID environment variable must be set'
-            return [json.dumps({'error': error_msg}).encode('utf-8')]
-
-        # 最终修正：移除不必要的 GroupId 请求头
-        headers_to_minimax = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
+        # 最终修正：根据官方文档内链 /speech-t2a-http 推断出的最终正确路径
+        url = "https://api.minimax.io/v1/speech/t2a"
         
         # 最终修正：根据官方克隆文档，使用明确支持克隆音色的 speech-02-hd 模型
         payload = {
