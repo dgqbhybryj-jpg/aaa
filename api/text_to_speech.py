@@ -56,41 +56,28 @@ def app(environ, start_response):
             error_msg = 'MINIMAX_API_KEY environment variable must be set'
             return [json.dumps({'error': error_msg}).encode('utf-8')]
             
-        # 修正1：使用官方文档指定的正确 API 地址和域名 (.io)
-        url = "https://api.minimax.io/v1/chat/completions"
+        # 最终修正：使用正确的 .io 域名，并根据 MCP 文档推断出最可能的专用 TTS 接口路径
+        url = "https://api.minimax.io/v1/text_to_audio"
         
         headers_to_minimax = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         
-        # 修正2：根据官方文档，构建全新的、正确的 payload 结构
-        # 我们利用 chat/completions 的能力，让它把输入的文字直接作为回复，并生成语音
+        # 最终修正：恢复到最初的、最直接的、符合 MCP 工具参数的 payload 结构
         payload = {
-            "model": "speech-02", # 使用文档中提到的 speech 模型
-            "messages": [
-                {
-                    "role": "user",
-                    "content": "朗读以下内容："
-                },
-                {
-                    "role": "assistant",
-                    "content": text # 将要朗读的文本放在这里
-                }
-            ],
-            "stream": False, # 我们需要一次性获取音频，所以不用流式传输
-            "speech_options": {
-                # 最终修正：根据 "fail to get model info" 错误，使用一个更具体的模型名称
-                "model": "speech-01-turbo-240228",
-                "voice": voice_id # 指定音色 ID
-            }
+            "text": text,
+            "voice_id": voice_id,
+            "model": "speech-02-hd", # MCP 文档中 text_to_audio 的默认模型
+            "speed": 1.0,
+            "vol": 1.0
         }
 
-        print(f"Calling MiniMax Chat/TTS with voice_id: {voice_id}, text: {text[:50]}...")
+        print(f"Calling MiniMax TTS with voice_id: {voice_id}, text: {text[:50]}...")
         
         response = requests.post(url, headers=headers_to_minimax, json=payload)
 
-        # 关键修复：检查响应内容类型
+        # 检查响应内容类型
         content_type = response.headers.get('Content-Type', '')
         print(f"MiniMax response status: {response.status_code}, content-type: {content_type}")
         
