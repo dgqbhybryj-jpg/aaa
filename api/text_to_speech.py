@@ -57,7 +57,7 @@ def app(environ, start_response):
             return [json.dumps({'error': error_msg}).encode('utf-8')]
             
         # 最终的、决定性的修正：根据 404 错误和用户已删除 GroupID 的状态，使用无 GroupID 的最终 URL
-        url = "https://api.minimax.io/v1/speech/t2a"
+        url = "https://api.minimax.chat/v1/text_to_speech"
         
         headers_to_minimax = {
             "Authorization": f"Bearer {api_key}",
@@ -68,7 +68,7 @@ def app(environ, start_response):
         payload = {
             "text": text,
             "voice_id": voice_id,
-            "model": "speech-02-hd", 
+            "model": "speech-02", 
             "speed": 1.0,
             "vol": 1.0
         }
