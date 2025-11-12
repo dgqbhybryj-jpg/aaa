@@ -50,29 +50,42 @@ def app(environ, start_response):
 
         # --- MiniMax API 调用 ---
         api_key = os.getenv("MINIMAX_API_KEY")
-        group_id = os.getenv("MINIMAX_GROUP_ID") # 新增：读取 Group ID
 
-        if not api_key or not group_id: # 修改：检查两个变量
+        if not api_key:
             start_response('500 Internal Server Error', headers)
-            error_msg = 'MINIMAX_API_KEY and MINIMAX_GROUP_ID environment variables must be set'
+            error_msg = 'MINIMAX_API_KEY environment variable must be set'
             return [json.dumps({'error': error_msg}).encode('utf-8')]
             
-        # 修改：将 GroupId 添加到 URL 查询参数中
-        url = f"https://api.minimax.chat/v1/text_to_speech?GroupId={group_id}"
+        # 修正1：使用官方文档指定的正确 API 地址和域名 (.io)
+        url = "https://api.minimax.io/v1/chat/completions"
         
         headers_to_minimax = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         
+        # 修正2：根据官方文档，构建全新的、正确的 payload 结构
+        # 我们利用 chat/completions 的能力，让它把输入的文字直接作为回复，并生成语音
         payload = {
-            "text": text,
-            "voice_id": voice_id,
-            "model": "speech-02-hd",
-            "speed": 1.0
+            "model": "speech-02", # 使用文档中提到的 speech 模型
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "朗读以下内容："
+                },
+                {
+                    "role": "assistant",
+                    "content": text # 将要朗读的文本放在这里
+                }
+            ],
+            "stream": False, # 我们需要一次性获取音频，所以不用流式传输
+            "speech_options": {
+                "model": "speech-02", # 指定语音模型
+                "voice": voice_id # 指定音色 ID
+            }
         }
 
-        print(f"Calling MiniMax TTS with voice_id: {voice_id}, text: {text[:50]}...")
+        print(f"Calling MiniMax Chat/TTS with voice_id: {voice_id}, text: {text[:50]}...")
         
         response = requests.post(url, headers=headers_to_minimax, json=payload)
 
@@ -93,13 +106,20 @@ def app(environ, start_response):
             # MiniMax API 返回错误或非音频内容
             error_info = f"MiniMax API returned non-audio content. Status: {response.status_code}, Content-Type: {content_type}"
             print(error_info)
-            print(f"Response preview: {response.text[:200]}")
-            
+            # 修正3：尝试解析 JSON 格式的错误响应，以便看到 "invalid api key" 等具体信息
+            try:
+                error_json = response.json()
+                print(f"Response JSON: {error_json}")
+                preview = json.dumps(error_json)
+            except json.JSONDecodeError:
+                preview = response.text[:200] if response.text else 'Empty response'
+                print(f"Response preview: {preview}")
+
             start_response('502 Bad Gateway', headers)
             return [json.dumps({
                 'error': 'TTS service returned invalid response',
                 'details': error_info,
-                'response_preview': response.text[:200] if response.text else 'Empty response'
+                'response_preview': preview
             }).encode('utf-8')]
 
     except json.JSONDecodeError:
