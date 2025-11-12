@@ -56,8 +56,8 @@ def app(environ, start_response):
             error_msg = 'MINIMAX_API_KEY environment variable must be set'
             return [json.dumps({'error': error_msg}).encode('utf-8')]
             
-        # 最终修正：使用正确的 .io 域名，并根据 MCP 文档推断出最可能的专用 TTS 接口路径
-        url = "https://api.minimax.io/v1/text_to_audio"
+        # 最终修正：根据官方文档内链 /speech-t2a-http 推断出的最终正确路径
+        url = "https://api.minimax.io/v1/speech/t2a"
         
         headers_to_minimax = {
             "Authorization": f"Bearer {api_key}",
