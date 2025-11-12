@@ -1,8 +1,18 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/analyze.py", "use": "@vercel/python" },
-    { "src": "static/**", "use": "@vercel/static" }
+    {
+      "src": "api/analyze.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "api/text_to_speech.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "static/**",
+      "use": "@vercel/static"
+    }
   ],
   "rewrites": [
     {
@@ -13,7 +23,10 @@
       "source": "/api/text_to_speech",
       "destination": "/api/text_to_speech.py"
     },
-    { "source": "/(.*)", "destination": "/static/$1" }
+    {
+      "source": "/(.*)",
+      "destination": "/static/$1"
+    }
   ],
   "headers": [
     {
