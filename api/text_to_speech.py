@@ -1,3 +1,4 @@
+# text_to_speech.py - 完整修复版本
 import os
 import json
 import requests
@@ -7,45 +8,51 @@ def app(environ, start_response):
     """
     WSGI 兼容的应用程序接口 for Vercel Serverless Function.
     """
+    # 设置通用 headers
+    headers = [
+        ('Content-Type', 'application/json'),
+        ('Access-Control-Allow-Origin', '*'),
+        ('Access-Control-Allow-Methods', 'POST, OPTIONS, GET'),
+        ('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    ]
+
     # 处理预检请求
     if environ['REQUEST_METHOD'] == 'OPTIONS':
-        headers = [
-            ('Access-Control-Allow-Origin', '*'),
-            ('Access-Control-Allow-Methods', 'POST, OPTIONS'),
-            ('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        ]
         start_response('200 OK', headers)
         return [b'']
 
     # 只处理POST请求
     if environ['REQUEST_METHOD'] != 'POST':
-        headers = [('Content-Type', 'application/json')]
         start_response('405 Method Not Allowed', headers)
         return [json.dumps({'error': 'Method not allowed'}).encode('utf-8')]
 
     try:
-        request_body_size = int(environ.get('CONTENT_LENGTH', 0))
-    except (ValueError):
-        request_body_size = 0
+        # 获取请求体大小
+        try:
+            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
+        except (ValueError):
+            request_body_size = 0
 
-    request_body = environ['wsgi.input'].read(request_body_size)
-    
-    try:
+        request_body = environ['wsgi.input'].read(request_body_size)
+        
+        # 解析请求数据
         data = json.loads(request_body.decode('utf-8'))
-        text = data.get('text')
-        voice_id = data.get('voice_id')
+        text = data.get('text', '').strip()
+        voice_id = data.get('voice_id', '').strip()
 
-        if not text or not voice_id:
-            headers = [('Content-Type', 'application/json')]
+        if not text:
             start_response('400 Bad Request', headers)
-            return [json.dumps({'error': 'Missing text or voice_id'}).encode('utf-8')]
+            return [json.dumps({'error': 'Missing text parameter'}).encode('utf-8')]
+
+        if not voice_id:
+            start_response('400 Bad Request', headers)
+            return [json.dumps({'error': 'Missing voice_id parameter'}).encode('utf-8')]
 
         # --- MiniMax API 调用 ---
         api_key = os.getenv("MINIMAX_API_KEY")
         if not api_key:
-             headers = [('Content-Type', 'application/json')]
-             start_response('500 Internal Server Error', headers)
-             return [json.dumps({'error': 'MINIMAX_API_KEY environment variable not set'}).encode('utf-8')]
+            start_response('500 Internal Server Error', headers)
+            return [json.dumps({'error': 'MINIMAX_API_KEY environment variable not set'}).encode('utf-8')]
             
         url = "https://api.minimax.chat/v1/text_to_speech"
         
@@ -61,29 +68,44 @@ def app(environ, start_response):
             "speed": 1.0
         }
 
-        response = requests.post(url, headers=headers_to_minimax, json=payload, stream=True)
+        print(f"Calling MiniMax TTS with voice_id: {voice_id}, text: {text[:50]}...")
+        
+        response = requests.post(url, headers=headers_to_minimax, json=payload)
 
-        if response.status_code == 200:
-            response_headers = [
-                ('Content-Type', response.headers['Content-Type']),
-                ('Access-Control-Allow-Origin', '*')
+        # 关键修复：检查响应内容类型
+        content_type = response.headers.get('Content-Type', '')
+        print(f"MiniMax response status: {response.status_code}, content-type: {content_type}")
+        
+        if response.status_code == 200 and 'audio' in content_type:
+            # 成功获取音频数据，直接返回二进制内容
+            audio_headers = [
+                ('Content-Type', content_type),
+                ('Access-Control-Allow-Origin', '*'),
+                ('Cache-Control', 'no-cache')
             ]
-            start_response('200 OK', response_headers)
-            return response.iter_content(chunk_size=8192)
+            start_response('200 OK', audio_headers)
+            return [response.content]
         else:
-            error_message = response.text
-            print(f"MiniMax API Error: {response.status_code} - {error_message}")
-            headers = [('Content-Type', 'application/json'), ('Access-Control-Allow-Origin', '*')]
-            start_response(f'{response.status_code} Bad Gateway', headers)
-            return [json.dumps({'error': 'Failed to generate audio from MiniMax', 'details': error_message}).encode('utf-8')]
+            # MiniMax API 返回错误或非音频内容
+            error_info = f"MiniMax API returned non-audio content. Status: {response.status_code}, Content-Type: {content_type}"
+            print(error_info)
+            print(f"Response preview: {response.text[:200]}")
+            
+            start_response('502 Bad Gateway', headers)
+            return [json.dumps({
+                'error': 'TTS service returned invalid response',
+                'details': error_info,
+                'response_preview': response.text[:200] if response.text else 'Empty response'
+            }).encode('utf-8')]
 
     except json.JSONDecodeError:
-        headers = [('Content-Type', 'application/json'), ('Access-Control-Allow-Origin', '*')]
         start_response('400 Bad Request', headers)
         return [json.dumps({'error': 'Invalid JSON in request body'}).encode('utf-8')]
     except Exception as e:
         print(f"Server Error: {e}")
         print(traceback.format_exc())
-        headers = [('Content-Type', 'application/json'), ('Access-Control-Allow-Origin', '*')]
         start_response('500 Internal Server Error', headers)
-        return [json.dumps({'error': 'Internal Server Error', 'details': str(e)}).encode('utf-8')]
+        return [json.dumps({
+            'error': 'Internal Server Error', 
+            'details': str(e)
+        }).encode('utf-8')]

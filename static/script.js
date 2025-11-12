@@ -47,6 +47,8 @@ if (synth.onvoiceschanged !== undefined) {
 }
 
 // --- 核心功能 ---
+// script.js - 修复 speak 函数中的 API 调用
+// script.js - 修复 speak 函数
 async function speak(text) {
     try {
         if (!text || typeof text !== 'string') {
@@ -78,27 +80,114 @@ async function speak(text) {
             }
             synth.speak(utterThis);
         } else {
-            // 使用 MiniMax TTS
-            const response = await fetch('/api/text_to_speech', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: text, voice_id: selectedVoice })
-            });
+            // 使用 MiniMax TTS - 增强错误处理
+            console.log('Using custom voice:', selectedVoice, 'for text:', text);
+            
+            try {
+                const response = await fetch('/api/text_to_speech', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        text: text, 
+                        voice_id: selectedVoice 
+                    })
+                });
 
-            if (response.ok) {
-                const audioBlob = await response.blob();
-                const audioUrl = URL.createObjectURL(audioBlob);
-                currentAudio = new Audio(audioUrl);
-                currentAudio.play();
-            } else {
-                const errorData = await response.json();
-                console.error('Failed to generate audio:', errorData);
-                alert(`音频生成失败: ${errorData.details || '未知错误'}`);
+                // 检查响应内容类型
+                const contentType = response.headers.get('content-type');
+                console.log('Response content-type:', contentType);
+
+                if (response.ok && contentType && contentType.includes('audio')) {
+                    // 成功获取音频
+                    const audioBlob = await response.blob();
+                    console.log('Audio blob type:', audioBlob.type, 'size:', audioBlob.size);
+                    
+                    if (audioBlob.size > 0) {
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        currentAudio = new Audio(audioUrl);
+                        
+                        // 添加错误监听
+                        currentAudio.onerror = (e) => {
+                            console.error('Audio element error:', e);
+                            throw new Error('Audio playback failed');
+                        };
+                        
+                        await currentAudio.play();
+                        console.log('Audio playback started successfully');
+                    } else {
+                        throw new Error('Empty audio blob received');
+                    }
+                } else {
+                    // 获取错误信息
+                    let errorData;
+                    try {
+                        errorData = await response.json();
+                    } catch (e) {
+                        errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+                    }
+                    
+                    console.error('TTS API error:', errorData);
+                    throw new Error(errorData.details || errorData.error || `TTS failed with status ${response.status}`);
+                }
+            } catch (apiError) {
+                console.warn('Custom TTS failed, falling back to default voice:', apiError);
+                
+                // 用户友好的错误提示
+                if (apiError.message.includes('MINIMAX_API_KEY')) {
+                    alert('TTS服务配置错误：请检查API密钥设置');
+                } else if (apiError.message.includes('TTS service')) {
+                    alert('TTS服务暂时不可用，已切换到默认语音');
+                } else {
+                    alert('自定义语音生成失败，已切换到默认语音');
+                }
+                
+                // 降级到浏览器默认语音
+                speakWithDefaultVoice(text);
             }
         }
     } catch (e) {
-        console.error('Speech synthesis error:', e);
+        console.error('All TTS methods failed:', e);
+        // 最终降级方案
+        speakWithDefaultVoice(text);
     }
+}
+
+// 确保降级函数存在
+function speakWithDefaultVoice(text) {
+    if (synth.speaking) {
+        synth.cancel();
+    }
+    const utterThis = new SpeechSynthesisUtterance(text);
+    utterThis.lang = 'en-GB';
+    
+    // 尝试找到英式英语语音
+    const britishVoice = voices.find(voice => 
+        voice.lang === 'en-GB' || voice.name.toLowerCase().includes('british')
+    );
+    if (britishVoice) {
+        utterThis.voice = britishVoice;
+    }
+    
+    synth.speak(utterThis);
+}
+
+
+
+
+
+
+
+// 添加降级函数
+function speakWithDefaultVoice(text) {
+    if (synth.speaking) {
+        synth.cancel();
+    }
+    
+    const utterThis = new SpeechSynthesisUtterance(text);
+    utterThis.lang = 'en-GB';
+    synth.speak(utterThis);
 }
 
 
