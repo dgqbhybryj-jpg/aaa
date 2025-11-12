@@ -80,7 +80,8 @@ def app(environ, start_response):
             ],
             "stream": False, # 我们需要一次性获取音频，所以不用流式传输
             "speech_options": {
-                "model": "speech-02", # 指定语音模型
+                # 最终修正：根据 "fail to get model info" 错误，使用一个更具体的模型名称
+                "model": "speech-01-turbo-240228",
                 "voice": voice_id # 指定音色 ID
             }
         }
