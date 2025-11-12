@@ -62,7 +62,7 @@ def app(environ, start_response):
             error_msg = 'MINIMAX_GROUP_ID environment variable must be set'
             return [json.dumps({'error': error_msg}).encode('utf-8')]
 
-        # 最终修正：根据 404 错误，移除不必要的 GroupId 请求头
+        # 最终修正：移除不必要的 GroupId 请求头
         headers_to_minimax = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
