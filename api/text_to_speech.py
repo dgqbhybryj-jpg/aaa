@@ -54,7 +54,7 @@ def app(environ, start_response):
             start_response('500 Internal Server Error', headers)
             return [json.dumps({'error': 'MINIMAX_API_KEY environment variable not set'}).encode('utf-8')]
             
-        url = "https://api.minimaxi.chat/v1/text_to_speech"
+        url = "https://api.minimax.chat/v1/text_to_speech"
         
         headers_to_minimax = {
             "Authorization": f"Bearer {api_key}",
