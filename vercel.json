@@ -5,7 +5,14 @@
     { "src": "static/**", "use": "@vercel/static" }
   ],
   "rewrites": [
-    { "source": "/api/analyze", "destination": "/api/analyze.py" },
+    {
+      "source": "/api/analyze",
+      "destination": "/api/analyze"
+    },
+    {
+      "source": "/api/text_to_speech",
+      "destination": "/api/text_to_speech"
+    },
     { "source": "/(.*)", "destination": "/static/$1" }
   ],
   "headers": [
