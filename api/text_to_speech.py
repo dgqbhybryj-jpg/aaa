@@ -59,6 +59,12 @@ def app(environ, start_response):
         # 最终修正：根据官方文档内链 /speech-t2a-http 推断出的最终正确路径
         url = "https://api.minimax.io/v1/speech/t2a"
         
+        # 最终修正：恢复被错误删除的 headers_to_minimax 变量定义
+        headers_to_minimax = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
         # 最终修正：根据官方克隆文档，使用明确支持克隆音色的 speech-02-hd 模型
         payload = {
             "text": text,
