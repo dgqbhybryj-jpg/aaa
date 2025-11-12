@@ -50,11 +50,15 @@ def app(environ, start_response):
 
         # --- MiniMax API 调用 ---
         api_key = os.getenv("MINIMAX_API_KEY")
-        if not api_key:
+        group_id = os.getenv("MINIMAX_GROUP_ID") # 新增：读取 Group ID
+
+        if not api_key or not group_id: # 修改：检查两个变量
             start_response('500 Internal Server Error', headers)
-            return [json.dumps({'error': 'MINIMAX_API_KEY environment variable not set'}).encode('utf-8')]
+            error_msg = 'MINIMAX_API_KEY and MINIMAX_GROUP_ID environment variables must be set'
+            return [json.dumps({'error': error_msg}).encode('utf-8')]
             
-        url = "https://api.minimax.chat/v1/text_to_speech"
+        # 修改：将 GroupId 添加到 URL 查询参数中
+        url = f"https://api.minimax.chat/v1/text_to_speech?GroupId={group_id}"
         
         headers_to_minimax = {
             "Authorization": f"Bearer {api_key}",
