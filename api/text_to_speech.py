@@ -50,16 +50,16 @@ def app(environ, start_response):
 
         # --- MiniMax API 调用 ---
         api_key = os.getenv("MINIMAX_API_KEY")
+        group_id = os.getenv("MINIMAX_GROUP_ID")
 
-        if not api_key:
+        if not api_key or not group_id:
             start_response('500 Internal Server Error', headers)
-            error_msg = 'MINIMAX_API_KEY environment variable must be set'
+            error_msg = 'MINIMAX_API_KEY and MINIMAX_GROUP_ID environment variables must be set'
             return [json.dumps({'error': error_msg}).encode('utf-8')]
             
-        # 最终修正：根据官方文档内链 /speech-t2a-http 推断出的最终正确路径
-        url = "https://api.minimax.io/v1/speech/t2a"
+        # 最终的、决定性的修正：将 GroupId 作为 URL 路径的一部分
+        url = f"https://api.minimax.io/v1/speech/t2a?GroupId={group_id}"
         
-        # 最终修正：恢复被错误删除的 headers_to_minimax 变量定义
         headers_to_minimax = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
