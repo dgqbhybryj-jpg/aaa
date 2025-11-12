@@ -7,11 +7,11 @@
   "rewrites": [
     {
       "source": "/api/analyze",
-      "destination": "/api/analyze"
+      "destination": "/api/analyze.py"
     },
     {
       "source": "/api/text_to_speech",
-      "destination": "/api/text_to_speech"
+      "destination": "/api/text_to_speech.py"
     },
     { "source": "/(.*)", "destination": "/static/$1" }
   ],
