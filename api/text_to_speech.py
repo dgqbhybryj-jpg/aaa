@@ -57,6 +57,7 @@ def app(environ, start_response):
             return [json.dumps({'error': error_msg}).encode('utf-8')]
             
         # 最终的、决定性的修正：根据 404 错误和用户已删除 GroupID 的状态，使用无 GroupID 的最终 URL
+        
         url = "https://api.minimax.chat/v1/text_to_speech"
         
         headers_to_minimax = {
@@ -67,10 +68,10 @@ def app(environ, start_response):
         # 最终修正：根据官方克隆文档，使用明确支持克隆音色的 speech-02-hd 模型
         payload = {
             "text": text,
-            "voice_id": voice_id,
-            "model": "speech-02", 
-            "speed": 1.0,
-            "vol": 1.0
+            "voice_id": "moss_audio_80254f50-bc80-11f0-8d50-aebac59e892f",
+            "model": "speech-2.6-hd",
+            "speed": 1,
+            "vol": 1
         }
 
         print(f"Calling MiniMax TTS with voice_id: {voice_id}, text: {text[:50]}...")
