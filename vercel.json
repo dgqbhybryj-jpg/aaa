@@ -14,25 +14,27 @@
       "use": "@vercel/static"
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/analyze",
-      "destination": "/api/analyze.py"
+      "src": "/api/analyze",
+      "dest": "/api/analyze.py"
     },
     {
-      "source": "/api/text_to_speech",
-      "destination": "/api/text_to_speech.py"
+      "src": "/api/text_to_speech",
+      "dest": "/api/text_to_speech.py"
     },
     {
-      "source": "/(.*)",
-      "destination": "/static/$1"
+      "src": "/(.*)",
+      "dest": "/static/$1"
     }
   ],
   "headers": [
     {
-      "source": "/static/(.*)\\.(js|css)",
+      "source": "/api/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store" }
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
       ]
     }
   ]
