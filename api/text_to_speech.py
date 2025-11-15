@@ -68,7 +68,7 @@ def app(environ, start_response):
         # 最终修正：根据官方克隆文档，使用明确支持克隆音色的 speech-02-hd 模型
         payload = {
             "text": text,
-            "voice_id": "moss_audio_80254f50-bc80-11f0-8d50-aebac59e892f",
+            "voice_id": voice_id,
             "model": "speech-2.6-hd",
             "speed": 1,
             "vol": 1

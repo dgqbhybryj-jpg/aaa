@@ -6,6 +6,12 @@ const itemsPerPage = 5;
 let currentAnalysisData = null; // 当前分析结果对象，用于可编辑备注与导出/收藏同步
 let currentSearchTerm = '';
 
+const MINI_MAX_VOICE_MAP = {
+    '英式英语【媒体】': 'moss_audio_80254f50-bc80-11f0-8d50-aebac59e892f',
+    '自然节目主持人男声': 'English_Magnetic_Male_12',
+    '新闻播报男声': 'English_Lively_Male_10'
+};
+
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 let isRecognizing = false;
@@ -63,9 +69,9 @@ async function speak(text) {
         }
         synth.cancel();
 
-        const selectedVoice = document.getElementById('voice-selector').value;
+        const selectedVoiceName = document.getElementById('voice-selector').value;
 
-        if (selectedVoice === 'browser-default') {
+        if (selectedVoiceName === 'browser-default') {
             // 使用浏览器自带TTS
             if (synth.speaking) {
                 setTimeout(() => speak(text), 100);
@@ -81,7 +87,16 @@ async function speak(text) {
             synth.speak(utterThis);
         } else {
             // 使用 MiniMax TTS - 增强错误处理
-            console.log('Using custom voice:', selectedVoice, 'for text:', text);
+            const voiceId = MINI_MAX_VOICE_MAP[selectedVoiceName];
+
+            if (!voiceId) {
+                console.error(`Custom voice "${selectedVoiceName}" not found in map.`);
+                alert(`自定义音色 "${selectedVoiceName}" 查找失败，已切换到默认语音。`);
+                speakWithDefaultVoice(text);
+                return;
+            }
+
+            console.log('Using custom voice:', selectedVoiceName, '->', voiceId, 'for text:', text);
             
             try {
                 const response = await fetch('/api/text_to_speech', {
@@ -91,7 +106,7 @@ async function speak(text) {
                     },
                     body: JSON.stringify({ 
                         text: text, 
-                        voice_id: selectedVoice 
+                        voice_id: voiceId 
                     })
                 });
 
