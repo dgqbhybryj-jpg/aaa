@@ -56,58 +56,69 @@ def app(environ, start_response):
             error_msg = 'MINIMAX_API_KEY environment variable must be set'
             return [json.dumps({'error': error_msg}).encode('utf-8')]
             
-        # 最终的、决定性的修正：根据 404 错误和用户已删除 GroupID 的状态，使用无 GroupID 的最终 URL
-        
-        url = "https://api.minimax.chat/v1/text_to_speech"
+        # 使用在 api_test.py 中验证成功的最新 v2 API 地址
+        url = "https://api.minimax.io/v1/t2a_v2"
         
         headers_to_minimax = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         
-        # 最终修正：根据官方克隆文档，使用明确支持克隆音色的 speech-02-hd 模型
+        # 使用最新的 v2 API 数据格式
         payload = {
             "text": text,
-            "voice_id": voice_id,
             "model": "speech-2.6-hd",
-            "speed": 1,
-            "vol": 1
+            "voice_setting": {
+                "voice_id": voice_id,
+                "speed": 1,
+                "vol": 1
+            }
         }
 
-        print(f"Calling MiniMax TTS with voice_id: {voice_id}, text: {text[:50]}...")
+        print(f"Calling MiniMax TTS v2 with voice_id: {voice_id}, text: {text[:50]}...")
         
         response = requests.post(url, headers=headers_to_minimax, json=payload)
 
-        # 检查响应内容类型
-        content_type = response.headers.get('Content-Type', '')
-        print(f"MiniMax response status: {response.status_code}, content-type: {content_type}")
+        # 检查响应并处理返回的 JSON 数据
+        print(f"MiniMax response status: {response.status_code}")
         
-        if response.status_code == 200 and 'audio' in content_type:
-            # 成功获取音频数据，直接返回二进制内容
-            audio_headers = [
-                ('Content-Type', content_type),
-                ('Access-Control-Allow-Origin', '*'),
-                ('Cache-Control', 'no-cache')
-            ]
-            start_response('200 OK', audio_headers)
-            return [response.content]
-        else:
-            # MiniMax API 返回错误或非音频内容
-            error_info = f"MiniMax API returned non-audio content. Status: {response.status_code}, Content-Type: {content_type}"
-            print(error_info)
-            # 修正3：尝试解析 JSON 格式的错误响应，以便看到 "invalid api key" 等具体信息
+        try:
+            json_response = response.json()
+            base_resp = json_response.get("base_resp", {})
+            status_code = base_resp.get("status_code")
+            
+            if status_code == 0:
+                # API 调用成功，解码十六进制音频数据
+                audio_hex = json_response.get("data", {}).get("audio")
+                if audio_hex:
+                    audio_data = bytes.fromhex(audio_hex)
+                    audio_headers = [
+                        ('Content-Type', 'audio/mpeg'), # 通常是 mp3
+                        ('Access-Control-Allow-Origin', '*'),
+                        ('Cache-Control', 'no-cache')
+                    ]
+                    start_response('200 OK', audio_headers)
+                    return [audio_data]
+                else:
+                    raise ValueError("API success but no audio data found")
+            else:
+                # API 返回明确的错误
+                error_msg = base_resp.get("status_msg", "Unknown error")
+                raise ValueError(f"MiniMax API Error: {error_msg} (Code: {status_code})")
+
+        except (json.JSONDecodeError, ValueError, AttributeError) as api_error:
+            print(f"Failed to process MiniMax response: {api_error}")
             try:
-                error_json = response.json()
-                print(f"Response JSON: {error_json}")
-                preview = json.dumps(error_json)
-            except json.JSONDecodeError:
-                preview = response.text[:200] if response.text else 'Empty response'
+                # 尝试打印原始响应以供调试
+                preview = response.text[:200]
                 print(f"Response preview: {preview}")
+            except Exception:
+                preview = "Could not get response preview."
 
             start_response('502 Bad Gateway', headers)
             return [json.dumps({
-                'error': 'TTS service returned invalid response',
-                'details': error_info,
+                'error': 'TTS service returned an invalid response.',
+                'details': str(api_error),
                 'response_preview': preview
             }).encode('utf-8')]
 
